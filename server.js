@@ -13,11 +13,22 @@ app.use(express.json());
 const LEADS_PER_FETCH = 5;
 const DAILY_LIMIT = Number(process.env.DAILY_LEAD_LIMIT) || 25;
 
+// Midnight Pakistan time, as an ISO timestamp.
+function todayStart() {
+    const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi' }).format(new Date()); // YYYY-MM-DD
+    return new Date(`${day}T00:00:00+05:00`).toISOString();
+}
+
 // Leads saved since midnight Pakistan time.
 async function countToday(db) {
-    const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi' }).format(new Date()); // YYYY-MM-DD
-    const start = new Date(`${day}T00:00:00+05:00`).toISOString();
-    const { count, error } = await db.from(TABLE).select('company_name', { count: 'exact', head: true }).gte('created_at', start);
+    const { count, error } = await db.from(TABLE).select('company_name', { count: 'exact', head: true }).gte('created_at', todayStart());
+    if (error) throw error;
+    return count || 0;
+}
+
+// Today's leads still marked "New" (not yet contacted or dismissed). Fetch stays locked while any remain.
+async function countPending(db) {
+    const { count, error } = await db.from(TABLE).select('company_name', { count: 'exact', head: true }).gte('created_at', todayStart()).eq('status', 'New');
     if (error) throw error;
     return count || 0;
 }
@@ -442,6 +453,16 @@ app.post('/api/fetch-leads', requireKey, async (req, res) => {
         const loc = resolveLocation(req.body || {});
         const query = loc.query;
 
+        // Work the current batch first: no new search (and no credit) while today's leads are still "New".
+        const pending = await countPending(db);
+        if (pending > 0) {
+            return res.json({
+                success: false,
+                pendingNew: pending,
+                message: `Contact or dismiss your ${pending} new lead${pending > 1 ? 's' : ''} first. Fetch unlocks when none are left as New.`
+            });
+        }
+
         // Daily cap is checked BEFORE searching, so a full day costs zero extra Tavily credits.
         const todayCount = await countToday(db);
         const remaining = DAILY_LIMIT - todayCount;
@@ -530,8 +551,9 @@ app.post('/api/login', async (req, res) => {
 // Today's lead count and Tavily credit usage.
 app.get('/api/stats', requireKey, async (req, res) => {
     try {
-        const [todayCount, tavily] = await Promise.all([countToday(getSupabase()), tavilyUsage()]);
-        return res.json({ success: true, todayCount, dailyLimit: DAILY_LIMIT, tavily });
+        const db = getSupabase();
+        const [todayCount, pendingNew, tavily] = await Promise.all([countToday(db), countPending(db), tavilyUsage()]);
+        return res.json({ success: true, todayCount, pendingNew, dailyLimit: DAILY_LIMIT, tavily });
     } catch (err) {
         return res.status(500).json({ success: false, message: `Server error: ${err.message}` });
     }

@@ -406,7 +406,7 @@ details.pitch[open] summary::before { content: "– "; }
                 <button class="active" data-tab="discover" onclick="showTab('discover')">Discover</button>
                 <button data-tab="saved" onclick="showTab('saved')">Saved<span class="count" id="savedCount"></span></button>
             </div>
-            <div class="msg" id="msg">Type a city (and area if you like). Only companies whose own site mentions it are kept.</div>
+            <div class="msg" id="msg">Type a city (and area if you like). Work each batch of 5 before fetching the next.</div>
         </div>
 
         <section class="view active" id="view-discover">
@@ -730,7 +730,7 @@ async function setStatus(lead, status) {
     try {
         const data = await api('/api/leads/status', { method: 'POST', body: JSON.stringify({ company_name: lead.company_name, status }) });
         if (!data.success) throw new Error(data.message);
-        renderPipeline(); renderChips();
+        renderPipeline(); renderChips(); recountPending();
         toast(`Marked ${status.toLowerCase()}`);
     } catch (err) {
         if (err.message === 'locked') return;
@@ -762,6 +762,7 @@ async function fetchLeads() {
         if (!data.success) {
             setMsg(data.message || 'No new leads this time. Try again.');
             if (data.limitReached) setToday(data.todayCount, data.dailyLimit);
+            if (data.pendingNew) { pendingNew = data.pendingNew; setToday(todayCountNow, dailyLimit); }
             return;
         }
         const list = document.getElementById('discoverList');
@@ -781,21 +782,31 @@ async function fetchLeads() {
 }
 
 /* ---------- overview tiles ---------- */
+let pendingNew = 0;
+let todayCountNow = 0;
+// Count today's leads still marked New from what's loaded, so the lock updates instantly when you mark one.
+function recountPending() {
+    const start = new Date(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi' }).format(new Date()) + 'T00:00:00+05:00');
+    pendingNew = savedLeads.filter(l => (l.status || 'New') === 'New' && l.created_at && new Date(l.created_at) >= start).length;
+    setToday(todayCountNow, dailyLimit);
+}
 function setToday(count, limit) {
     dailyLimit = limit;
+    todayCountNow = count;
     const dots = document.getElementById('dots');
     if (!dots.children.length) for (let i = 0; i < limit; i++) dots.appendChild(el('span', { class: 'dot' }));
     [...dots.children].forEach((d, i) => setTimeout(() => d.classList.toggle('on', i < count), i * 25));
     document.getElementById('todayText').textContent = `${count} of ${limit}.`;
     const btn = document.getElementById('fetchBtn');
     const full = count >= limit;
-    btn.disabled = full;
-    btn.textContent = full ? 'Done for today' : 'Fetch leads';
+    btn.disabled = full || pendingNew > 0;
+    btn.textContent = full ? 'Done for today' : pendingNew > 0 ? `Contact ${pendingNew} lead${pendingNew > 1 ? 's' : ''} first` : 'Fetch leads';
 }
 async function loadStats() {
     try {
         const data = await api('/api/stats');
         if (!data.success) return;
+        pendingNew = data.pendingNew || 0;
         setToday(data.todayCount, data.dailyLimit);
         const t = data.tavily;
         const c = document.getElementById('credits');
@@ -855,7 +866,7 @@ async function loadSaved() {
         if (!data.success) { setMsg(data.message); return; }
         savedLeads = data.leads;
         savedLoaded = true;
-        renderHeat(); renderPipeline(); renderLocations(); renderChips(); renderSaved();
+        renderHeat(); renderPipeline(); renderLocations(); renderChips(); renderSaved(); recountPending();
     } catch (err) {
         if (err.message !== 'locked') setMsg('Couldn\'t load saved leads.');
     }
