@@ -122,28 +122,56 @@ const BAD_EMAIL = /(\.png|\.jpg|\.jpeg|\.gif|\.webp|\.svg|example\.|wixpress|sen
 
 // Only real contacts: mailto/tel/wa.me links first, then visible text. Nothing is ever invented.
 function extractContacts($) {
-    let email = null, phone = null;
+    const emails = [], phones = [];
+    const addE = v => { v = (v || '').trim().toLowerCase(); if (v.includes('@') && !BAD_EMAIL.test(v) && !emails.includes(v)) emails.push(v); };
+    const addP = v => { const d = (v || '').replace(/[^\d+]/g, ''); if (d.replace(/\D/g, '').length >= 9 && !phones.some(p => p.replace(/\D/g, '') === d.replace(/\D/g, ''))) phones.push(v.trim()); };
 
-    $('a[href^="mailto:"]').each((i, el) => {
-        const v = ($(el).attr('href') || '').replace(/^mailto:/i, '').split('?')[0].trim();
-        if (!email && v.includes('@') && !BAD_EMAIL.test(v)) email = v;
-    });
+    $('a[href^="mailto:"]').each((i, el) => addE(($(el).attr('href') || '').replace(/^mailto:/i, '').split('?')[0]));
     $('a[href*="wa.me/"], a[href*="api.whatsapp.com"]').each((i, el) => {
         const href = $(el).attr('href') || '';
         const m = href.match(/wa\.me\/(\d{8,15})/) || href.match(/phone=(\d{8,15})/);
-        if (!phone && m) phone = '+' + m[1];
+        if (m) addP('+' + m[1]);
     });
-    $('a[href^="tel:"]').each((i, el) => {
-        const v = ($(el).attr('href') || '').replace(/^tel:/i, '').trim();
-        if (!phone && v.replace(/\D/g, '').length >= 9) phone = v;
-    });
-
-    if (!email) {
-        const text = $('body').text();
-        const found = (text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || []).find(e => !BAD_EMAIL.test(e));
-        if (found) email = found;
+    $('a[href^="tel:"]').each((i, el) => addP(($(el).attr('href') || '').replace(/^tel:/i, '')));
+    if (!emails.length) {
+        ($('body').text().match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || []).forEach(addE);
     }
-    return { email, phone };
+    return { email: emails[0] || null, phone: phones[0] || null, emails: emails.slice(0, 5), phones: phones.slice(0, 4) };
+}
+
+const SOCIALS = { instagram: /instagram\.com\/(?!p\/|reel\/|explore)[^/?#]+/i, facebook: /facebook\.com\/(?!sharer)[^?#]+/i, linkedin: /linkedin\.com\/(company|in)\/[^?#]+/i, tiktok: /tiktok\.com\/@[^?#]+/i, youtube: /youtube\.com\/(@|channel\/|c\/|user\/)[^?#]+/i, x: /(?:twitter|x)\.com\/(?!share|intent)[^/?#]+/i, pinterest: /pinterest\.[a-z.]+\/[^/?#]+/i, behance: /behance\.net\/[^/?#]+/i };
+
+// Company facts the site itself publishes: socials, address, maps, description, founding year.
+function extractDetails($) {
+    const socials = {};
+    $('a[href]').each((i, el) => {
+        const href = $(el).attr('href') || '';
+        for (const [k, re] of Object.entries(SOCIALS)) if (!socials[k] && re.test(href)) socials[k] = href.split('?')[0];
+    });
+    let address = null, founded = null, maps = null;
+    $('script[type="application/ld+json"]').each((i, el) => {
+        try {
+            const json = JSON.parse($(el).contents().text());
+            for (const n of [].concat(json['@graph'] || json)) {
+                if (!n || typeof n !== 'object') continue;
+                const a = n.address || (n.location && n.location.address);
+                if (!address && a) address = typeof a === 'string' ? a : [a.streetAddress, a.addressLocality, a.addressRegion, a.addressCountry && (a.addressCountry.name || a.addressCountry)].filter(Boolean).join(', ');
+                if (!founded && n.foundingDate) founded = String(n.foundingDate).slice(0, 4);
+                if (!maps && n.hasMap) maps = n.hasMap;
+            }
+        } catch { /* ignore */ }
+    });
+    if (!address) {
+        const t = $('address').first().text().replace(/\s+/g, ' ').trim();
+        if (t && t.length <= 160) address = t;
+    }
+    if (!maps) maps = $('a[href*="google.com/maps"], a[href*="goo.gl/maps"], a[href*="maps.app.goo.gl"]').first().attr('href') || null;
+    if (!founded) {
+        const m = $('body').text().match(/\b(?:since|established|est\.?|founded(?: in)?)\s+(19[5-9]\d|20[0-2]\d)\b/i);
+        if (m) founded = m[1];
+    }
+    const desc = ($('meta[name="description"]').attr('content') || $('meta[property="og:description"]').attr('content') || '').replace(/\s+/g, ' ').trim();
+    return { socials, address: address || null, maps, founded, description: desc ? desc.slice(0, 280) : null };
 }
 
 const MIN_SCORE = 50;
@@ -160,8 +188,10 @@ function looksLikeName(str) {
     return words.every(w => /^[A-Z][a-zA-Z'’.-]{1,20}$/.test(w) && !NOT_NAME.has(w.toLowerCase().replace(/[.'’]/g, '')));
 }
 
-// Find a named decision-maker. Only returns a person the site actually names next to a senior role.
-function findDecisionMaker($) {
+// Named people the site lists next to a senior role (never invented).
+function findPeople($) {
+    const out = [];
+    const add = p => { if (p && !out.some(o => o.name === p.name)) out.push(p); };
     // 1. Structured data (schema.org founder / employee)
     let found = null;
     $('script[type="application/ld+json"]').each((i, el) => {
@@ -173,15 +203,13 @@ function findDecisionMaker($) {
                 const f = n && (n.founder || n.founders);
                 const person = Array.isArray(f) ? f[0] : f;
                 const name = person && (typeof person === 'string' ? person : person.name);
-                if (name && looksLikeName(name)) { found = { name, role: 'Founder' }; return; }
+                if (name && looksLikeName(name)) add({ name, role: 'Founder' });
             }
         } catch { /* ignore bad JSON-LD */ }
     });
-    if (found) return found;
-
     // 2. Visible text: "Name — Founder", "Founder: Name", or a name heading followed by a role line
     const blocks = $('h1,h2,h3,h4,h5,h6,p,li,strong,b,span,figcaption,div').toArray();
-    for (let i = 0; i < blocks.length && !found; i++) {
+    for (let i = 0; i < blocks.length && out.length < 4; i++) {
         const el = blocks[i];
         if ($(el).children().length > 3) continue;
         const text = $(el).text().replace(/\s+/g, ' ').trim();
@@ -191,13 +219,14 @@ function findDecisionMaker($) {
 
         const parts = text.split(/\s*[,|–—:•\-]\s*|\s{2,}/).map(t => t.trim()).filter(Boolean);
         const name = parts.find(looksLikeName);
-        if (name) { found = { name, role: role[0].replace(/^\w/, c => c.toUpperCase()) }; break; }
+        if (name) { add({ name, role: role[0].replace(/^\w/, c => c.toUpperCase()) }); continue; }
 
         const prev = $(el).prev().text().replace(/\s+/g, ' ').trim();
-        if (looksLikeName(prev)) { found = { name: prev, role: role[0].replace(/^\w/, c => c.toUpperCase()) }; break; }
+        if (looksLikeName(prev)) add({ name: prev, role: role[0].replace(/^\w/, c => c.toUpperCase()) });
     }
-    return found;
+    return out;
 }
+const findDecisionMaker = $ => findPeople($)[0] || null;
 
 function companyNameFrom($, fallbackTitle, host) {
     const og = $('meta[property="og:site_name"]').attr('content');
@@ -227,9 +256,9 @@ async function auditLead(result, regionName) {
     if (!host || isExcluded(host)) return null;
 
     const $ = cheerio.load(page.html);
-    let { email, phone } = extractContacts($);
-
-    let person = findDecisionMaker($);
+    const contacts = extractContacts($);
+    const details = extractDetails($);
+    const people = findPeople($);
 
     // Contact and About pages fetched in parallel (no Tavily credits used).
     const origin = new URL(page.finalUrl).origin;
@@ -237,19 +266,28 @@ async function auditLead(result, regionName) {
         const href = $('a[href]').filter((i, el) => re.test($(el).attr('href') || '') || re.test($(el).text())).first().attr('href');
         try { return href ? new URL(href, origin).href : origin + fallback; } catch { return origin + fallback; }
     };
-    const needContact = !email || !phone;
-    const [cp, ap] = await Promise.all([
-        needContact ? getPage(linkTo(/contact/i, '/contact'), 5000) : null,
-        !person ? getPage(linkTo(/about|team|founder|leadership|our-story|who-we-are/i, '/about'), 5000) : null
-    ]);
-    for (const extra of [cp, ap]) {
+    const contactUrl = linkTo(/contact/i, '/contact');
+    const aboutUrl = linkTo(/about|team|founder|leadership|our-story|who-we-are/i, '/about');
+    const [cp, ap] = await Promise.all([getPage(contactUrl, 5000), getPage(aboutUrl, 5000)]);
+    const pagesUsed = [page.finalUrl];
+    for (const [extra, url] of [[cp, contactUrl], [ap, aboutUrl]]) {
         if (!extra) continue;
+        pagesUsed.push(url);
         const $x = cheerio.load(extra.html);
         const c = extractContacts($x);
-        email = email || c.email;
-        phone = phone || c.phone;
-        if (!person) person = findDecisionMaker($x);
+        c.emails.forEach(e => { if (!contacts.emails.includes(e) && contacts.emails.length < 5) contacts.emails.push(e); });
+        c.phones.forEach(p => { if (!contacts.phones.some(q => q.replace(/\D/g, '') === p.replace(/\D/g, '')) && contacts.phones.length < 4) contacts.phones.push(p); });
+        const d = extractDetails($x);
+        for (const [k, v] of Object.entries(d.socials)) if (!details.socials[k]) details.socials[k] = v;
+        details.address = details.address || d.address;
+        details.maps = details.maps || d.maps;
+        details.founded = details.founded || d.founded;
+        details.description = details.description || d.description;
+        findPeople($x).forEach(p => { if (!people.some(o => o.name === p.name) && people.length < 4) people.push(p); });
     }
+    const email = contacts.emails[0] || null;
+    const phone = contacts.phones[0] || null;
+    const person = people[0] || null;
 
     const issues = [];
     const secs = (page.ms / 1000).toFixed(1);
@@ -265,10 +303,7 @@ async function auditLead(result, regionName) {
     const copyright = (page.html.match(/(?:©|&copy;|copyright)\s*(?:\d{4}\s*[-–]\s*)?(\d{4})/i) || [])[1];
     if (copyright && Number(copyright) <= year - 3) issues.push(`footer copyright still says ${copyright}, which signals an unmaintained site`);
 
-    let instagramUrl = null;
-    $('a[href*="instagram.com/"]').each((i, el) => {
-        if (!instagramUrl) instagramUrl = $(el).attr('href');
-    });
+    const instagramUrl = details.socials.instagram || null;
 
     const company = companyNameFrom($, result.title, host);
     const hasIssues = issues.length > 0;
@@ -305,6 +340,21 @@ async function auditLead(result, regionName) {
         instagram_link: instagramUrl,
         lead_score: score,
         score_breakdown: breakdown,
+        details: {
+            emails: contacts.emails,
+            phones: contacts.phones,
+            people,
+            socials: details.socials,
+            address: details.address,
+            maps: details.maps,
+            founded: details.founded,
+            description: details.description,
+            issues,
+            response_secs: Number(secs),
+            https: page.finalUrl.startsWith('https://'),
+            pages_checked: pagesUsed,
+            search_query: result.query || null
+        },
         contact_name: person ? person.name : null,
         contact_role: person ? person.role : null,
         recent_activity_evidence: `Site reachable on ${new Date().toISOString().slice(0, 10)} (${secs}s response)`
@@ -359,7 +409,7 @@ app.post('/api/fetch-leads', requireKey, async (req, res) => {
             const host = hostOf(r.url);
             if (!host || isExcluded(host) || seenHosts.has(host)) continue;
             seenHosts.add(host);
-            candidates.push({ title: r.title, url: r.url });
+            candidates.push({ title: r.title, url: r.url, query });
         }
 
         if (candidates.length === 0) {
