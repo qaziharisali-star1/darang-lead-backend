@@ -11,6 +11,43 @@ app.use(cors());
 app.use(express.json());
 
 const LEADS_PER_FETCH = 5;
+const DAILY_LIMIT = Number(process.env.DAILY_LEAD_LIMIT) || 25;
+
+// Leads saved since midnight Pakistan time.
+async function countToday(db) {
+    const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi' }).format(new Date()); // YYYY-MM-DD
+    const start = new Date(`${day}T00:00:00+05:00`).toISOString();
+    const { count, error } = await db.from(TABLE).select('company_name', { count: 'exact', head: true }).gte('created_at', start);
+    if (error) throw error;
+    return count || 0;
+}
+
+// Live Tavily credit usage for this billing cycle (null if unavailable).
+async function tavilyUsage() {
+    try {
+        const r = await axios.get('https://api.tavily.com/usage', {
+            headers: { Authorization: `Bearer ${process.env.TAVILY_API_KEY}` },
+            timeout: 5000
+        });
+        const a = r.data.account || {};
+        const k = r.data.key || {};
+        return {
+            used: a.plan_usage != null ? a.plan_usage : k.usage,
+            limit: a.plan_limit != null ? a.plan_limit : k.limit,
+            plan: a.current_plan || null
+        };
+    } catch {
+        return null;
+    }
+}
+const STATUSES = ['New', 'Contacted', 'Replied', 'Won', 'Lost', 'Low priority'];
+
+// Optional lock: if CRM_ACCESS_KEY is set in Vercel, every data request must send it.
+function requireKey(req, res, next) {
+    const key = process.env.CRM_ACCESS_KEY;
+    if (!key || req.get('x-crm-key') === key) return next();
+    return res.status(401).json({ success: false, auth: true, message: "Enter your CRM access key." });
+}
 const TABLE = 'Leade';
 
 // Lazy init: creating the client at module load crashes the whole function
@@ -198,7 +235,7 @@ async function auditLead(result, regionName) {
     };
 }
 
-app.post('/api/fetch-leads', async (req, res) => {
+app.post('/api/fetch-leads', requireKey, async (req, res) => {
     try {
         if (!process.env.TAVILY_API_KEY) {
             throw new Error("Missing TAVILY_API_KEY in Vercel Environment Variables.");
@@ -212,6 +249,20 @@ app.post('/api/fetch-leads', async (req, res) => {
             if (found) region = found;
         }
         const query = region.queries[Math.floor(Math.random() * region.queries.length)];
+
+        // Daily cap is checked BEFORE searching, so a full day costs zero extra Tavily credits.
+        const todayCount = await countToday(db);
+        const remaining = DAILY_LIMIT - todayCount;
+        if (remaining <= 0) {
+            return res.json({
+                success: false,
+                limitReached: true,
+                todayCount,
+                dailyLimit: DAILY_LIMIT,
+                message: `Daily limit reached: ${todayCount}/${DAILY_LIMIT} leads today. New leads unlock after midnight (Pakistan time).`
+            });
+        }
+        const batchSize = Math.min(LEADS_PER_FETCH, remaining);
 
         // One Tavily search per FETCH (1 credit on basic depth). Site checks below don't use Tavily.
         const tavilyRes = await axios.post('https://api.tavily.com/search', {
@@ -248,7 +299,7 @@ app.post('/api/fetch-leads', async (req, res) => {
             if (seenNames.has(key)) continue;
             seenNames.add(key);
             leads.push(lead);
-            if (leads.length >= LEADS_PER_FETCH) break;
+            if (leads.length >= batchSize) break;
         }
 
         if (leads.length === 0) {
@@ -264,11 +315,58 @@ app.post('/api/fetch-leads', async (req, res) => {
 
         if (dbError) throw dbError;
 
-        return res.json({ success: true, query, leads });
+        return res.json({ success: true, query, leads, todayCount: todayCount + leads.length, dailyLimit: DAILY_LIMIT });
 
     } catch (err) {
         console.error("Fetch Error:", err);
         return res.status(500).json({ success: false, error: err.message, message: `Server error: ${err.message}` });
+    }
+});
+
+// Today's lead count and Tavily credit usage.
+app.get('/api/stats', requireKey, async (req, res) => {
+    try {
+        const [todayCount, tavily] = await Promise.all([countToday(getSupabase()), tavilyUsage()]);
+        return res.json({ success: true, todayCount, dailyLimit: DAILY_LIMIT, tavily });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: `Server error: ${err.message}` });
+    }
+});
+
+// Saved leads, newest first.
+app.get('/api/leads', requireKey, async (req, res) => {
+    try {
+        const { data, error } = await getSupabase()
+            .from(TABLE)
+            .select('*')
+            .order('created_at', { ascending: false, nullsFirst: false })
+            .limit(1000);
+        if (error) throw error;
+        return res.json({ success: true, leads: data || [] });
+    } catch (err) {
+        console.error("List Error:", err);
+        return res.status(500).json({ success: false, message: `Server error: ${err.message}` });
+    }
+});
+
+// Change a lead's pipeline status.
+app.post('/api/leads/status', requireKey, async (req, res) => {
+    try {
+        const { company_name, status } = req.body || {};
+        if (!company_name || !STATUSES.includes(status)) {
+            return res.status(400).json({ success: false, message: "Invalid lead or status." });
+        }
+        const { data, error } = await getSupabase()
+            .from(TABLE)
+            .update({ status })
+            .eq('company_name', company_name)
+            .select();
+        if (error) throw error;
+        if (!data || !data.length) return res.status(404).json({ success: false, message: "Lead not found." });
+        return res.json({ success: true, lead: data[0] });
+    } catch (err) {
+        console.error("Status Error:", err);
+        return res.status(500).json({ success: false, message: `Server error: ${err.message}` });
     }
 });
 

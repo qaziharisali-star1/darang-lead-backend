@@ -12,24 +12,31 @@
             --text-main: #f5f5f7;
             --text-sub: #a1a1a6;
             --border-color: #262626;
+            --s-new: #d4af37;
+            --s-contacted: #5ac8fa;
+            --s-replied: #bf8cff;
+            --s-won: #30d158;
+            --s-lost: #ff6961;
+            --s-low: #6e6e73;
         }
+
+        * { box-sizing: border-box; }
 
         body {
             background-color: var(--bg-color);
             color: var(--text-main);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 20px 16px 60px;
             display: flex;
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
         }
 
-        .header {
-            text-align: center;
-            margin-bottom: 24px;
-        }
+        .wrap { width: 100%; max-width: 520px; }
+
+        .header { text-align: center; margin-bottom: 20px; }
 
         .header h1 {
             font-size: 24px;
@@ -39,33 +46,52 @@
             margin: 0 0 6px 0;
         }
 
-        .header p {
+        .header p { color: var(--text-sub); font-size: 13px; margin: 0; }
+
+        .tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 4px;
+            margin-bottom: 18px;
+        }
+
+        .tab {
+            background: none;
+            border: none;
             color: var(--text-sub);
-            font-size: 13px;
-            margin: 0;
+            padding: 10px;
+            border-radius: 7px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
         }
 
-        .controls {
-            width: 100%;
-            max-width: 480px;
-            margin-bottom: 20px;
-            display: flex;
-            gap: 10px;
-        }
+        .tab.active { background: #262626; color: var(--text-main); }
 
-        select, button {
+        .tab .count { color: var(--accent-gold); font-weight: 600; margin-left: 4px; }
+
+        .view { display: none; }
+        .view.active { display: block; }
+
+        .controls { display: flex; gap: 10px; margin-bottom: 12px; }
+
+        select, button, input {
             background: var(--card-bg);
             color: var(--text-main);
             border: 1px solid var(--border-color);
-            padding: 12px 16px;
+            padding: 12px 14px;
             border-radius: 8px;
             font-size: 14px;
             outline: none;
+            font-family: inherit;
         }
 
-        select {
-            flex: 1;
-        }
+        select, input { flex: 1; min-width: 0; }
+
+        input::placeholder { color: var(--text-sub); }
 
         button.btn-fetch {
             background: var(--accent-gold);
@@ -76,62 +102,102 @@
             transition: opacity 0.2s;
         }
 
-        button.btn-fetch:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        button.btn-fetch:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .status-msg {
+            margin: 4px 0 8px;
+            font-size: 13px;
+            color: var(--text-sub);
+            text-align: center;
+            min-height: 18px;
         }
 
-        .lead-card {
-            width: 100%;
-            max-width: 480px;
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .stat {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 20px;
-            box-sizing: border-box;
-            margin-top: 16px;
+            border-radius: 10px;
+            padding: 10px 12px;
         }
 
-        #leadList {
-            width: 100%;
-            max-width: 480px;
+        .stat-num { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+        .stat-label { font-size: 11px; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+        .chips {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            padding-bottom: 6px;
+            margin-bottom: 6px;
+            scrollbar-width: none;
         }
 
-        .low-priority {
-            opacity: 0.75;
-        }
+        .chips::-webkit-scrollbar { display: none; }
 
-        .muted {
-            color: var(--text-sub);
-            font-style: italic;
-        }
-
-        .action-btn.disabled {
-            background: #1f1f1f;
-            color: var(--text-sub);
-            pointer-events: none;
-        }
-
-        .company-title {
-            font-size: 20px;
+        .chip {
+            flex: none;
+            padding: 7px 12px;
+            border-radius: 999px;
+            font-size: 12px;
             font-weight: 600;
-            margin-bottom: 4px;
+            cursor: pointer;
+            white-space: nowrap;
         }
 
-        .region-badge {
-            display: inline-block;
+        .chip.active { background: var(--text-main); color: #000; border-color: var(--text-main); }
+
+        .lead-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-left: 3px solid var(--s-new);
+            border-radius: 12px;
+            padding: 18px;
+            margin-top: 14px;
+        }
+
+        .lead-card[data-status="Contacted"] { border-left-color: var(--s-contacted); }
+        .lead-card[data-status="Replied"] { border-left-color: var(--s-replied); }
+        .lead-card[data-status="Won"] { border-left-color: var(--s-won); }
+        .lead-card[data-status="Lost"] { border-left-color: var(--s-lost); opacity: 0.6; }
+        .lead-card[data-status="Low priority"] { border-left-color: var(--s-low); opacity: 0.75; }
+
+        .card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .company-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; word-break: break-word; }
+
+        .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+
+        .badge {
             background: #262626;
             color: var(--accent-gold);
             font-size: 11px;
             padding: 4px 8px;
             border-radius: 4px;
-            margin-bottom: 16px;
             text-transform: uppercase;
         }
 
-        .info-group {
-            margin-bottom: 12px;
+        .badge.date { color: var(--text-sub); text-transform: none; }
+
+        select.status-select {
+            flex: none;
+            padding: 6px 8px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 6px;
         }
+
+        .info-group { margin-bottom: 10px; }
 
         .info-label {
             font-size: 11px;
@@ -141,11 +207,9 @@
             margin-bottom: 2px;
         }
 
-        .info-value {
-            font-size: 14px;
-            color: var(--text-main);
-            word-break: break-all;
-        }
+        .info-value { font-size: 14px; color: var(--text-main); word-break: break-word; }
+
+        .muted { color: var(--text-sub); font-style: italic; }
 
         .pitch-box {
             background: #0d0d0d;
@@ -155,14 +219,14 @@
             font-size: 13px;
             line-height: 1.5;
             color: #e5e5e5;
-            margin-top: 16px;
+            margin-top: 12px;
         }
 
         .actions {
-            margin-top: 20px;
+            margin-top: 14px;
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
         }
 
         .action-btn {
@@ -170,157 +234,416 @@
             align-items: center;
             justify-content: center;
             text-decoration: none;
-            padding: 12px;
+            padding: 11px 6px;
             border-radius: 8px;
             font-size: 13px;
             font-weight: 600;
             text-align: center;
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
         }
 
-        .btn-wa {
-            background: #25d366;
-            color: #000;
-        }
+        .btn-wa { background: #25d366; color: #000; }
+        .btn-link { background: #262626; color: var(--text-main); }
+        .action-btn.disabled { background: #1f1f1f; color: var(--text-sub); pointer-events: none; }
 
-        .btn-link {
-            background: #262626;
-            color: var(--text-main);
-        }
+        details.more { margin-top: 8px; }
+        details.more summary { font-size: 12px; color: var(--text-sub); cursor: pointer; }
 
-        #status-msg {
-            margin-top: 12px;
-            font-size: 13px;
-            color: var(--text-sub);
+        .empty {
             text-align: center;
+            color: var(--text-sub);
+            font-size: 14px;
+            padding: 40px 10px;
         }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: var(--text-main);
+            color: #000;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            transition: transform 0.25s;
+            z-index: 10;
+        }
+
+        .toast.show { transform: translateX(-50%) translateY(0); }
+
+        .lock {
+            text-align: center;
+            padding: 40px 0;
+        }
+
+        .lock p { color: var(--text-sub); font-size: 14px; }
+
+        .lock .controls { max-width: 360px; margin: 0 auto; }
     </style>
 </head>
 <body>
+<div class="wrap">
 
     <div class="header">
         <h1>Darang Lead Engine</h1>
         <p>Live Discovery & Custom Pitching</p>
     </div>
 
-    <div class="controls">
-        <select id="regionSelect">
-            <option value="all">All Regions</option>
-            <option value="Houston TX">Houston TX</option>
-            <option value="Dubai UAE">Dubai UAE</option>
-            <option value="Riyadh KSA">Riyadh KSA</option>
-        </select>
-        <button class="btn-fetch" id="fetchBtn" onclick="fetchLiveLead()">⚡ FETCH</button>
+    <div class="lock" id="lockView" hidden>
+        <p>This CRM is locked. Enter your access key.</p>
+        <div class="controls">
+            <input type="password" id="keyInput" placeholder="Access key" autocomplete="current-password">
+            <button class="btn-fetch" onclick="saveKey()">Unlock</button>
+        </div>
     </div>
 
-    <div id="status-msg">Tap FETCH to pull up to 5 new leads with real website audits.</div>
+    <div id="appView">
+        <div class="tabs">
+            <button class="tab active" data-tab="discover" onclick="showTab('discover')">Discover</button>
+            <button class="tab" data-tab="saved" onclick="showTab('saved')">Saved Leads<span class="count" id="savedCount"></span></button>
+        </div>
 
-    <div id="leadList"></div>
+        <!-- DISCOVER -->
+        <section class="view active" id="view-discover">
+            <div class="controls">
+                <select id="regionSelect">
+                    <option value="all">All Regions</option>
+                    <option value="Houston TX">Houston TX</option>
+                    <option value="Dubai UAE">Dubai UAE</option>
+                    <option value="Riyadh KSA">Riyadh KSA</option>
+                </select>
+                <button class="btn-fetch" id="fetchBtn" onclick="fetchLeads()">⚡ FETCH</button>
+            </div>
+            <div class="stats" id="statsBar">
+                <div class="stat"><div class="stat-num" id="statToday">–</div><div class="stat-label">Leads today</div></div>
+                <div class="stat"><div class="stat-num" id="statCredits">–</div><div class="stat-label">Tavily credits used</div></div>
+            </div>
+            <div class="status-msg" id="fetchStatus">Tap FETCH to pull up to 5 new leads (daily limit 25).</div>
+            <div id="discoverList"></div>
+        </section>
 
-    <template id="leadTemplate">
-        <div class="lead-card">
+        <!-- SAVED -->
+        <section class="view" id="view-saved">
+            <div class="controls">
+                <input type="search" id="searchInput" placeholder="Search company, website, email..." oninput="renderSaved()">
+                <select id="savedRegion" onchange="renderSaved()" style="flex: 0 0 130px;">
+                    <option value="all">All regions</option>
+                    <option value="Houston TX">Houston TX</option>
+                    <option value="Dubai UAE">Dubai UAE</option>
+                    <option value="Riyadh KSA">Riyadh KSA</option>
+                </select>
+            </div>
+            <div class="chips" id="statusChips"></div>
+            <div class="status-msg" id="savedStatus"></div>
+            <div id="savedList"></div>
+        </section>
+    </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<template id="leadTemplate">
+    <div class="lead-card">
+        <div class="card-top">
             <div class="company-title" data-f="company_name">-</div>
-            <div class="region-badge" data-f="region">-</div>
+            <select class="status-select" data-a="status"></select>
+        </div>
+        <div class="badges">
+            <span class="badge" data-f="region"></span>
+            <span class="badge date" data-a="date"></span>
+        </div>
 
-            <div class="info-group">
+        <div class="info-group">
+            <div class="info-label">Email</div>
+            <div class="info-value" data-f="email">-</div>
+        </div>
+
+        <div class="info-group">
+            <div class="info-label">Phone / WhatsApp</div>
+            <div class="info-value" data-f="phone_whatsapp">-</div>
+        </div>
+
+        <div class="info-group">
+            <div class="info-label">Audit Finding</div>
+            <div class="info-value" data-f="website_issue">-</div>
+        </div>
+
+        <details class="more">
+            <summary>Website, package & pitch</summary>
+            <div class="info-group" style="margin-top:10px;">
                 <div class="info-label">Website</div>
                 <div class="info-value" data-f="website">-</div>
             </div>
-
-            <div class="info-group">
-                <div class="info-label">Contact Email</div>
-                <div class="info-value" data-f="email">-</div>
-            </div>
-
-            <div class="info-group">
-                <div class="info-label">Phone / WhatsApp</div>
-                <div class="info-value" data-f="phone_whatsapp">-</div>
-            </div>
-
-            <div class="info-group">
-                <div class="info-label">Audit Finding</div>
-                <div class="info-value" data-f="website_issue">-</div>
-            </div>
-
             <div class="info-group">
                 <div class="info-label">Package</div>
                 <div class="info-value" data-f="target_package">-</div>
             </div>
-
             <div class="pitch-box" data-f="pitch_text">-</div>
+        </details>
 
-            <div class="actions">
-                <a href="#" target="_blank" rel="noopener" class="action-btn btn-wa" data-a="wa">WhatsApp Lead</a>
-                <a href="#" target="_blank" rel="noopener" class="action-btn btn-link" data-a="site">Visit Website</a>
-            </div>
+        <div class="actions">
+            <a target="_blank" rel="noopener" class="action-btn btn-wa" data-a="wa">WhatsApp</a>
+            <button class="action-btn btn-link" data-a="copy">Copy pitch</button>
+            <a target="_blank" rel="noopener" class="action-btn btn-link" data-a="site">Website</a>
         </div>
-    </template>
+    </div>
+</template>
 
-    <script>
-        const BACKEND_API_URL = "/api/fetch-leads";
+<script>
+    const STATUSES = ['New', 'Contacted', 'Replied', 'Won', 'Lost', 'Low priority'];
+    let savedLeads = [];
+    let savedLoaded = false;
+    let statusFilter = 'all';
 
-        function renderLead(lead) {
-            const node = document.getElementById('leadTemplate').content.firstElementChild.cloneNode(true);
-            if (lead.status === 'Low priority') node.classList.add('low-priority');
+    // ---------- access key ----------
+    function getKey() {
+        try { return localStorage.getItem('crmKey') || ''; } catch { return ''; }
+    }
 
-            node.querySelectorAll('[data-f]').forEach(el => {
-                const key = el.dataset.f;
-                const val = lead[key];
-                if (val) {
-                    el.textContent = val;
-                } else {
-                    el.textContent = key === 'email' ? 'No email found on their site'
-                        : key === 'phone_whatsapp' ? 'No phone found on their site' : '-';
-                    el.classList.add('muted');
+    function saveKey() {
+        const v = document.getElementById('keyInput').value.trim();
+        if (!v) return;
+        try { localStorage.setItem('crmKey', v); } catch {}
+        document.getElementById('lockView').hidden = true;
+        document.getElementById('appView').hidden = false;
+        loadSaved();
+        loadStats();
+    }
+
+    function showLock() {
+        try { localStorage.removeItem('crmKey'); } catch {}
+        document.getElementById('appView').hidden = true;
+        document.getElementById('lockView').hidden = false;
+        document.getElementById('keyInput').focus();
+    }
+
+    async function api(path, options = {}) {
+        const res = await fetch(path, {
+            ...options,
+            headers: { 'Content-Type': 'application/json', 'x-crm-key': getKey(), ...(options.headers || {}) }
+        });
+        const data = await res.json().catch(() => ({ success: false, message: 'Bad server response.' }));
+        if (res.status === 401 && data.auth) {
+            showLock();
+            throw new Error('locked');
+        }
+        return data;
+    }
+
+    // ---------- helpers ----------
+    function toast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(t._h);
+        t._h = setTimeout(() => t.classList.remove('show'), 1800);
+    }
+
+    function fmtDate(iso) {
+        if (!iso) return '';
+        const d = new Date(iso);
+        return isNaN(d) ? '' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+    }
+
+    function showTab(name) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+        document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+        if (name === 'saved') loadSaved();
+    }
+
+    // ---------- lead card ----------
+    function renderLead(lead) {
+        const node = document.getElementById('leadTemplate').content.firstElementChild.cloneNode(true);
+        node.dataset.status = lead.status || 'New';
+
+        node.querySelectorAll('[data-f]').forEach(el => {
+            const key = el.dataset.f;
+            const val = lead[key];
+            if (val) {
+                el.textContent = val;
+            } else {
+                el.textContent = key === 'email' ? 'No email found on their site'
+                    : key === 'phone_whatsapp' ? 'No phone found on their site' : '-';
+                el.classList.add('muted');
+            }
+        });
+
+        node.querySelector('[data-a="date"]').textContent = fmtDate(lead.created_at) || 'Just now';
+
+        const sel = node.querySelector('[data-a="status"]');
+        STATUSES.forEach(s => sel.add(new Option(s, s, false, s === (lead.status || 'New'))));
+        sel.addEventListener('change', () => updateStatus(lead, sel.value, node, sel));
+
+        const wa = node.querySelector('[data-a="wa"]');
+        const digits = (lead.phone_whatsapp || '').replace(/\D/g, '');
+        if (digits.length >= 9) {
+            wa.href = `https://wa.me/${digits}?text=${encodeURIComponent(lead.pitch_text || '')}`;
+            wa.addEventListener('click', () => {
+                if ((lead.status || 'New') === 'New') {
+                    sel.value = 'Contacted';
+                    updateStatus(lead, 'Contacted', node, sel);
                 }
             });
-
-            const wa = node.querySelector('[data-a="wa"]');
-            const digits = (lead.phone_whatsapp || '').replace(/\D/g, '');
-            if (digits.length >= 9) {
-                wa.href = `https://wa.me/${digits}?text=${encodeURIComponent(lead.pitch_text)}`;
-            } else {
-                wa.textContent = 'No WhatsApp';
-                wa.classList.add('disabled');
-                wa.removeAttribute('href');
-            }
-            node.querySelector('[data-a="site"]').href = lead.source_link || `https://${lead.website}`;
-            return node;
+        } else {
+            wa.textContent = 'No WhatsApp';
+            wa.classList.add('disabled');
         }
 
-        async function fetchLiveLead() {
-            const btn = document.getElementById('fetchBtn');
-            const status = document.getElementById('status-msg');
-            const list = document.getElementById('leadList');
-            const region = document.getElementById('regionSelect').value;
-
-            btn.disabled = true;
-            status.innerText = "Searching and auditing live company websites (10-20s)...";
-
+        node.querySelector('[data-a="copy"]').addEventListener('click', async () => {
             try {
-                const response = await fetch(BACKEND_API_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ regionFilter: region })
-                });
-
-                const data = await response.json();
-
-                if (!data.success) {
-                    status.innerText = data.message || "No new leads found. Try again.";
-                    return;
-                }
-
-                list.innerHTML = '';
-                data.leads.forEach(lead => list.appendChild(renderLead(lead)));
-                const strong = data.leads.filter(l => l.status !== 'Low priority').length;
-                status.innerText = `${data.leads.length} leads saved to Supabase (${strong} with real website issues).`;
-            } catch (err) {
-                console.error(err);
-                status.innerText = "Error connecting to backend server.";
-            } finally {
-                btn.disabled = false;
+                await navigator.clipboard.writeText(lead.pitch_text || '');
+                toast('Pitch copied');
+            } catch {
+                toast('Copy failed. Open "Website, package & pitch" and copy manually.');
             }
+        });
+
+        node.querySelector('[data-a="site"]').href = lead.source_link || `https://${lead.website}`;
+        return node;
+    }
+
+    async function updateStatus(lead, status, node, sel) {
+        const prev = lead.status || 'New';
+        lead.status = status;
+        node.dataset.status = status;
+        try {
+            const data = await api('/api/leads/status', {
+                method: 'POST',
+                body: JSON.stringify({ company_name: lead.company_name, status })
+            });
+            if (!data.success) throw new Error(data.message);
+            const s = savedLeads.find(l => l.company_name === lead.company_name);
+            if (s) s.status = status;
+            renderChips();
+            toast(`Marked ${status}`);
+        } catch (err) {
+            if (err.message === 'locked') return;
+            lead.status = prev;
+            node.dataset.status = prev;
+            sel.value = prev;
+            toast(`Couldn't update: ${err.message}`);
         }
-    </script>
+    }
+
+    // ---------- discover ----------
+    async function fetchLeads() {
+        const btn = document.getElementById('fetchBtn');
+        const status = document.getElementById('fetchStatus');
+        const list = document.getElementById('discoverList');
+
+        btn.disabled = true;
+        status.textContent = "Searching and auditing live company websites (10-20s)...";
+
+        try {
+            const data = await api('/api/fetch-leads', {
+                method: 'POST',
+                body: JSON.stringify({ regionFilter: document.getElementById('regionSelect').value })
+            });
+
+            if (!data.success) {
+                status.textContent = data.message || "No new leads found. Try again.";
+                if (data.limitReached) setToday(data.todayCount, data.dailyLimit);
+                return;
+            }
+
+            list.innerHTML = '';
+            data.leads.forEach(lead => list.appendChild(renderLead(lead)));
+            const strong = data.leads.filter(l => l.status !== 'Low priority').length;
+            status.textContent = `${data.leads.length} leads saved (${strong} with real website issues).`;
+            savedLoaded = false; // refresh Saved tab next time it opens
+            loadSaved(true);
+        } catch (err) {
+            if (err.message !== 'locked') status.textContent = "Error connecting to backend server.";
+        } finally {
+            btn.disabled = false;
+            loadStats();
+        }
+    }
+
+    // ---------- stats ----------
+    function setToday(count, limit) {
+        const el = document.getElementById('statToday');
+        el.textContent = `${count} / ${limit}`;
+        el.style.color = count >= limit ? 'var(--s-lost)' : '';
+        const btn = document.getElementById('fetchBtn');
+        btn.disabled = count >= limit;
+        btn.textContent = count >= limit ? 'Limit reached' : '⚡ FETCH';
+    }
+
+    async function loadStats() {
+        try {
+            const data = await api('/api/stats');
+            if (!data.success) return;
+            setToday(data.todayCount, data.dailyLimit);
+            const t = data.tavily;
+            document.getElementById('statCredits').textContent =
+                t && t.used != null ? (t.limit ? `${t.used} / ${t.limit}` : `${t.used}`) : 'n/a';
+        } catch {}
+    }
+
+    // ---------- saved ----------
+    async function loadSaved(quiet) {
+        if (savedLoaded) { renderSaved(); return; }
+        const status = document.getElementById('savedStatus');
+        if (!quiet) status.textContent = 'Loading saved leads...';
+        try {
+            const data = await api('/api/leads');
+            if (!data.success) { status.textContent = data.message; return; }
+            savedLeads = data.leads;
+            savedLoaded = true;
+            status.textContent = '';
+            renderChips();
+            renderSaved();
+        } catch (err) {
+            if (err.message !== 'locked') status.textContent = 'Error loading saved leads.';
+        }
+    }
+
+    function renderChips() {
+        const counts = { all: savedLeads.length };
+        STATUSES.forEach(s => counts[s] = 0);
+        savedLeads.forEach(l => counts[l.status || 'New'] = (counts[l.status || 'New'] || 0) + 1);
+
+        document.getElementById('savedCount').textContent = savedLeads.length ? savedLeads.length : '';
+
+        const wrap = document.getElementById('statusChips');
+        wrap.innerHTML = '';
+        ['all', ...STATUSES].forEach(s => {
+            const b = document.createElement('button');
+            b.className = 'chip' + (statusFilter === s ? ' active' : '');
+            b.textContent = `${s === 'all' ? 'All' : s} ${counts[s] || 0}`;
+            b.onclick = () => { statusFilter = s; renderChips(); renderSaved(); };
+            wrap.appendChild(b);
+        });
+    }
+
+    function renderSaved() {
+        const q = document.getElementById('searchInput').value.trim().toLowerCase();
+        const region = document.getElementById('savedRegion').value;
+        const list = document.getElementById('savedList');
+
+        const rows = savedLeads.filter(l =>
+            (statusFilter === 'all' || (l.status || 'New') === statusFilter) &&
+            (region === 'all' || l.region === region) &&
+            (!q || [l.company_name, l.website, l.email, l.phone_whatsapp].some(v => (v || '').toLowerCase().includes(q)))
+        );
+
+        list.innerHTML = '';
+        if (!savedLoaded) return;
+        if (!rows.length) {
+            list.innerHTML = `<div class="empty">${savedLeads.length ? 'No leads match these filters.' : 'No saved leads yet. Go to Discover and tap FETCH.'}</div>`;
+            return;
+        }
+        rows.forEach(l => list.appendChild(renderLead(l)));
+    }
+
+    loadSaved(true);
+    loadStats();
+</script>
 </body>
 </html>
