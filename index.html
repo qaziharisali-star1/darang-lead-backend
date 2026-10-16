@@ -89,11 +89,27 @@
             border-radius: 12px;
             padding: 20px;
             box-sizing: border-box;
-            display: none;
+            margin-top: 16px;
         }
 
-        .lead-card.active {
-            display: block;
+        #leadList {
+            width: 100%;
+            max-width: 480px;
+        }
+
+        .low-priority {
+            opacity: 0.75;
+        }
+
+        .muted {
+            color: var(--text-sub);
+            font-style: italic;
+        }
+
+        .action-btn.disabled {
+            background: #1f1f1f;
+            color: var(--text-sub);
+            pointer-events: none;
         }
 
         .company-title {
@@ -196,47 +212,89 @@
         <button class="btn-fetch" id="fetchBtn" onclick="fetchLiveLead()">⚡ FETCH</button>
     </div>
 
-    <div id="status-msg">Tap FETCH to pull a new lead directly from Google.</div>
+    <div id="status-msg">Tap FETCH to pull up to 5 new leads with real website audits.</div>
 
-    <div class="lead-card" id="leadCard">
-        <div class="company-title" id="companyName">-</div>
-        <div class="region-badge" id="regionBadge">-</div>
+    <div id="leadList"></div>
 
-        <div class="info-group">
-            <div class="info-label">Website</div>
-            <div class="info-value" id="websiteUrl">-</div>
+    <template id="leadTemplate">
+        <div class="lead-card">
+            <div class="company-title" data-f="company_name">-</div>
+            <div class="region-badge" data-f="region">-</div>
+
+            <div class="info-group">
+                <div class="info-label">Website</div>
+                <div class="info-value" data-f="website">-</div>
+            </div>
+
+            <div class="info-group">
+                <div class="info-label">Contact Email</div>
+                <div class="info-value" data-f="email">-</div>
+            </div>
+
+            <div class="info-group">
+                <div class="info-label">Phone / WhatsApp</div>
+                <div class="info-value" data-f="phone_whatsapp">-</div>
+            </div>
+
+            <div class="info-group">
+                <div class="info-label">Audit Finding</div>
+                <div class="info-value" data-f="website_issue">-</div>
+            </div>
+
+            <div class="info-group">
+                <div class="info-label">Package</div>
+                <div class="info-value" data-f="target_package">-</div>
+            </div>
+
+            <div class="pitch-box" data-f="pitch_text">-</div>
+
+            <div class="actions">
+                <a href="#" target="_blank" rel="noopener" class="action-btn btn-wa" data-a="wa">WhatsApp Lead</a>
+                <a href="#" target="_blank" rel="noopener" class="action-btn btn-link" data-a="site">Visit Website</a>
+            </div>
         </div>
-
-        <div class="info-group">
-            <div class="info-label">Contact Email</div>
-            <div class="info-value" id="contactEmail">-</div>
-        </div>
-
-        <div class="info-group">
-            <div class="info-label">Audit Finding</div>
-            <div class="info-value" id="auditFinding">-</div>
-        </div>
-
-        <div class="pitch-box" id="pitchText">-</div>
-
-        <div class="actions">
-            <a href="#" target="_blank" class="action-btn btn-wa" id="waBtn">WhatsApp Lead</a>
-            <a href="#" target="_blank" class="action-btn btn-link" id="sourceBtn">Visit Website</a>
-        </div>
-    </div>
+    </template>
 
     <script>
         const BACKEND_API_URL = "/api/fetch-leads";
 
+        function renderLead(lead) {
+            const node = document.getElementById('leadTemplate').content.firstElementChild.cloneNode(true);
+            if (lead.status === 'Low priority') node.classList.add('low-priority');
+
+            node.querySelectorAll('[data-f]').forEach(el => {
+                const key = el.dataset.f;
+                const val = lead[key];
+                if (val) {
+                    el.textContent = val;
+                } else {
+                    el.textContent = key === 'email' ? 'No email found on their site'
+                        : key === 'phone_whatsapp' ? 'No phone found on their site' : '-';
+                    el.classList.add('muted');
+                }
+            });
+
+            const wa = node.querySelector('[data-a="wa"]');
+            const digits = (lead.phone_whatsapp || '').replace(/\D/g, '');
+            if (digits.length >= 9) {
+                wa.href = `https://wa.me/${digits}?text=${encodeURIComponent(lead.pitch_text)}`;
+            } else {
+                wa.textContent = 'No WhatsApp';
+                wa.classList.add('disabled');
+                wa.removeAttribute('href');
+            }
+            node.querySelector('[data-a="site"]').href = lead.source_link || `https://${lead.website}`;
+            return node;
+        }
+
         async function fetchLiveLead() {
             const btn = document.getElementById('fetchBtn');
             const status = document.getElementById('status-msg');
-            const card = document.getElementById('leadCard');
+            const list = document.getElementById('leadList');
             const region = document.getElementById('regionSelect').value;
 
             btn.disabled = true;
-            status.innerText = "Searching Google & auditing live site...";
-            card.classList.remove('active');
+            status.innerText = "Searching and auditing live company websites (10-20s)...";
 
             try {
                 const response = await fetch(BACKEND_API_URL, {
@@ -249,25 +307,13 @@
 
                 if (!data.success) {
                     status.innerText = data.message || "No new leads found. Try again.";
-                    btn.disabled = false;
                     return;
                 }
 
-                const lead = data.lead;
-
-                document.getElementById('companyName').innerText = lead.company_name;
-                document.getElementById('regionBadge').innerText = lead.region;
-                document.getElementById('websiteUrl').innerText = lead.website;
-                document.getElementById('contactEmail').innerText = lead.email;
-                document.getElementById('auditFinding').innerText = lead.website_issue;
-                document.getElementById('pitchText').innerText = lead.pitch_text;
-
-                const waPhone = (lead.phone_whatsapp || '').replace(/\D/g, '');
-                document.getElementById('waBtn').href = `https://wa.me/${waPhone}?text=${encodeURIComponent(lead.pitch_text)}`;
-                document.getElementById('sourceBtn').href = lead.source_link;
-
-                card.classList.add('active');
-                status.innerText = "Lead fetched and saved to Supabase!";
+                list.innerHTML = '';
+                data.leads.forEach(lead => list.appendChild(renderLead(lead)));
+                const strong = data.leads.filter(l => l.status !== 'Low priority').length;
+                status.innerText = `${data.leads.length} leads saved to Supabase (${strong} with real website issues).`;
             } catch (err) {
                 console.error(err);
                 status.innerText = "Error connecting to backend server.";
