@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
@@ -9,10 +10,19 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// Lazy init: creating the client at module load crashes the whole function
+// (FUNCTION_INVOCATION_FAILED) when an env var is missing on Vercel.
+let supabase = null;
+function getSupabase() {
+    if (!supabase) {
+        const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
+        if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+            throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in Vercel Environment Variables.");
+        }
+        supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    }
+    return supabase;
+}
 
 const REGIONS = [
     { name: "Houston TX", querySuffix: "site:instagram.com \"custom homes\" OR \"custom cabinetry\" OR \"interior designer\" Houston Texas" },
@@ -98,7 +108,11 @@ async function auditAndExtractLead(companyName, targetUrl, region) {
 
 app.post('/api/fetch-leads', async (req, res) => {
     try {
-        const { regionFilter } = req.body;
+        if (!process.env.TAVILY_API_KEY) {
+            throw new Error("Missing TAVILY_API_KEY in Vercel Environment Variables.");
+        }
+        const db = getSupabase();
+        const { regionFilter } = req.body || {};
         
         let selectedRegionObj = REGIONS[Math.floor(Math.random() * REGIONS.length)];
         if (regionFilter && regionFilter !== 'all') {
@@ -111,7 +125,7 @@ app.post('/api/fetch-leads', async (req, res) => {
             query: selectedRegionObj.querySuffix,
             search_depth: "basic",
             max_results: 10
-        });
+        }, { timeout: 15000 });
 
         const searchResults = (tavilyRes.data.results || []).map(r => ({
             title: r.title,
@@ -122,7 +136,7 @@ app.post('/api/fetch-leads', async (req, res) => {
             return res.status(404).json({ success: false, message: "No live results returned from search." });
         }
 
-        const { data: existingLeads } = await supabase
+        const { data: existingLeads } = await db
             .from('Leade')
             .select('website, company_name');
         
@@ -148,7 +162,7 @@ app.post('/api/fetch-leads', async (req, res) => {
             });
         }
 
-        const { data: insertedData, error: dbError } = await supabase
+        const { data: insertedData, error: dbError } = await db
             .from('Leade')
             .insert([freshLead])
             .select();
@@ -162,9 +176,22 @@ app.post('/api/fetch-leads', async (req, res) => {
 
     } catch (err) {
         console.error("Fetch Error:", err);
-        return res.status(500).json({ success: false, error: err.message });
+        return res.status(500).json({ success: false, error: err.message, message: `Server error: ${err.message}` });
     }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Live Lead Backend running on port ${PORT}`));
+// Health check: GET /api/fetch-leads in a browser confirms the function boots.
+app.get('/api/fetch-leads', (req, res) => {
+    res.json({ success: true, message: "Backend is live. Use POST to fetch a lead." });
+});
+
+// Local dev only — on Vercel, index.html is served by the static build (see vercel.json).
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+
+// Vercel imports this file as a serverless function; it must export the app, not listen.
+if (require.main === module) {
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => console.log(`Live Lead Backend running on port ${PORT}`));
+}
+
+module.exports = app;
