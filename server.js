@@ -106,9 +106,17 @@ app.post('/api/fetch-leads', async (req, res) => {
             if (found) selectedRegionObj = found;
         }
 
-        const serpApiUrl = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(selectedRegionObj.querySuffix)}&api_key=${process.env.SERPAPI_KEY}`;
-        const searchRes = await axios.get(serpApiUrl);
-        const searchResults = searchRes.data.organic_results || [];
+        const tavilyRes = await axios.post('https://api.tavily.com/search', {
+            api_key: process.env.TAVILY_API_KEY,
+            query: selectedRegionObj.querySuffix,
+            search_depth: "basic",
+            max_results: 10
+        });
+
+        const searchResults = (tavilyRes.data.results || []).map(r => ({
+            title: r.title,
+            link: r.url
+        }));
 
         if (searchResults.length === 0) {
             return res.status(404).json({ success: false, message: "No live results returned from search." });
@@ -124,7 +132,7 @@ app.post('/api/fetch-leads', async (req, res) => {
         let freshLead = null;
 
         for (const result of searchResults) {
-            let titleClean = result.title.split('-')[0].split('|')[0].trim();
+            let titleClean = (result.title || "Company").split('-')[0].split('|')[0].trim();
             let domainClean = (result.link || '').replace(/^https?:\/\/(www\.)?/, '').split('/')[0].toLowerCase();
 
             if (!existingWebsites.has(domainClean) && !existingNames.has(titleClean.toLowerCase())) {
