@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Darang Studio CRM</title>
+    <style>
+        :root {
+            --bg-color: #0d0d0d;
+            --card-bg: #171717;
+            --accent-gold: #d4af37;
+            --text-main: #f5f5f7;
+            --text-sub: #a1a1a6;
+            --border-color: #262626;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--accent-gold);
+            margin: 0 0 6px 0;
+        }
+
+        .header p {
+            color: var(--text-sub);
+            font-size: 13px;
+            margin: 0;
+        }
+
+        .controls {
+            width: 100%;
+            max-width: 480px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        select, button {
+            background: var(--card-bg);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        select {
+            flex: 1;
+        }
+
+        button.btn-fetch {
+            background: var(--accent-gold);
+            color: #000;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        button.btn-fetch:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .lead-card {
+            width: 100%;
+            max-width: 480px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            box-sizing: border-box;
+            display: none;
+        }
+
+        .lead-card.active {
+            display: block;
+        }
+
+        .company-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .region-badge {
+            display: inline-block;
+            background: #262626;
+            color: var(--accent-gold);
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+        }
+
+        .info-group {
+            margin-bottom: 12px;
+        }
+
+        .info-label {
+            font-size: 11px;
+            color: var(--text-sub);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+        }
+
+        .info-value {
+            font-size: 14px;
+            color: var(--text-main);
+            word-break: break-all;
+        }
+
+        .pitch-box {
+            background: #0d0d0d;
+            border: 1px dashed var(--accent-gold);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #e5e5e5;
+            margin-top: 16px;
+        }
+
+        .actions {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .action-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .btn-wa {
+            background: #25d366;
+            color: #000;
+        }
+
+        .btn-link {
+            background: #262626;
+            color: var(--text-main);
+        }
+
+        #status-msg {
+            margin-top: 12px;
+            font-size: 13px;
+            color: var(--text-sub);
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Darang Lead Engine</h1>
+        <p>Live Discovery & Custom Pitching</p>
+    </div>
+
+    <div class="controls">
+        <select id="regionSelect">
+            <option value="all">All Regions</option>
+            <option value="Houston TX">Houston TX</option>
+            <option value="Dubai UAE">Dubai UAE</option>
+            <option value="Riyadh KSA">Riyadh KSA</option>
+        </select>
+        <button class="btn-fetch" id="fetchBtn" onclick="fetchLiveLead()">⚡ FETCH</button>
+    </div>
+
+    <div id="status-msg">Tap FETCH to pull a new lead directly from Google.</div>
+
+    <div class="lead-card" id="leadCard">
+        <div class="company-title" id="companyName">-</div>
+        <div class="region-badge" id="regionBadge">-</div>
+
+        <div class="info-group">
+            <div class="info-label">Website</div>
+            <div class="info-value" id="websiteUrl">-</div>
+        </div>
+
+        <div class="info-group">
+            <div class="info-label">Contact Email</div>
+            <div class="info-value" id="contactEmail">-</div>
+        </div>
+
+        <div class="info-group">
+            <div class="info-label">Audit Finding</div>
+            <div class="info-value" id="auditFinding">-</div>
+        </div>
+
+        <div class="pitch-box" id="pitchText">-</div>
+
+        <div class="actions">
+            <a href="#" target="_blank" class="action-btn btn-wa" id="waBtn">WhatsApp Lead</a>
+            <a href="#" target="_blank" class="action-btn btn-link" id="sourceBtn">Visit Website</a>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_API_URL = "/api/fetch-leads";
+
+        async function fetchLiveLead() {
+            const btn = document.getElementById('fetchBtn');
+            const status = document.getElementById('status-msg');
+            const card = document.getElementById('leadCard');
+            const region = document.getElementById('regionSelect').value;
+
+            btn.disabled = true;
+            status.innerText = "Searching Google & auditing live site...";
+            card.classList.remove('active');
+
+            try {
+                const response = await fetch(BACKEND_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ regionFilter: region })
+                });
+
+                const data = await response.json();
+
+                if (!data.success) {
+                    status.innerText = data.message || "No new leads found. Try again.";
+                    btn.disabled = false;
+                    return;
+                }
+
+                const lead = data.lead;
+
+                document.getElementById('companyName').innerText = lead.company_name;
+                document.getElementById('regionBadge').innerText = lead.region;
+                document.getElementById('websiteUrl').innerText = lead.website;
+                document.getElementById('contactEmail').innerText = lead.email;
+                document.getElementById('auditFinding').innerText = lead.website_issue;
+                document.getElementById('pitchText').innerText = lead.pitch_text;
+
+                const waPhone = (lead.phone_whatsapp || '').replace(/\D/g, '');
+                document.getElementById('waBtn').href = `https://wa.me/${waPhone}?text=${encodeURIComponent(lead.pitch_text)}`;
+                document.getElementById('sourceBtn').href = lead.source_link;
+
+                card.classList.add('active');
+                status.innerText = "Lead fetched and saved to Supabase!";
+            } catch (err) {
+                console.error(err);
+                status.innerText = "Error connecting to backend server.";
+            } finally {
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
