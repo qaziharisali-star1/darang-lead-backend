@@ -8,6 +8,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+(function () {
+    var t = null;
+    try { t = localStorage.getItem('crmTheme'); } catch (e) {}
+    if (!t) t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+})();
+</script>
 <style>
 :root {
     --bg: #000;
@@ -24,13 +32,53 @@
     --green: #30d158;
     --red: #ff453a;
     --orange: #ff9f0a;
+    --hover: #1c1c1f;
+    --seg-on: #2c2c2e;
+    --track: #161618;
+    --sheet: #0b0b0c;
+    --pitch: #d6d6d9;
+    --scrim: rgba(0, 0, 0, .6);
+    --toast: rgba(44, 44, 46, .92);
+    --ring-track: #1c1c1e;
+    --on-primary: #000;
+    --dot-off: #23414d;
+    --on-green: #00230b;
+    --h0: #161618; --h1: #3b1513; --h2: #6e1f1b; --h3: #b02f28; --h4: #ff453a;
     --sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Helvetica Neue", Arial, sans-serif;
     --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
     --ease: cubic-bezier(.2, .8, .2, 1);
 }
+:root[data-theme="light"] {
+    --bg: #f5f5f7;
+    --tile: #ffffff;
+    --tile-2: #f2f2f4;
+    --line: #e5e5ea;
+    --line-2: #d1d1d6;
+    --text: #1d1d1f;
+    --text-2: #6e6e73;
+    --text-3: #8e8e93;
+    --gold: #a8841a;
+    --blue: #0a84ff;
+    --purple: #af52de;
+    --green: #34c759;
+    --red: #ff3b30;
+    --orange: #ff9500;
+    --hover: #ebebef;
+    --seg-on: #ffffff;
+    --track: #ececf0;
+    --sheet: #ffffff;
+    --pitch: #3a3a3c;
+    --scrim: rgba(0, 0, 0, .25);
+    --toast: rgba(255, 255, 255, .92);
+    --ring-track: #e9e9ee;
+    --on-primary: #fff;
+    --dot-off: #b9d7f7;
+    --h0: #ececf0; --h1: #ffd6d1; --h2: #ffa69b; --h3: #ff6b5c; --h4: #ff3b30;
+}
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
-html { background: var(--bg); }
+html { background: var(--bg); transition: background .3s; }
+body, .tile, .lead, .sheet, .act, .seg, .select, .input { transition: background-color .3s, border-color .3s, color .3s; }
 body {
     margin: 0;
     background: var(--bg);
@@ -50,6 +98,8 @@ button, select, input { font-family: inherit; font-size: 14px; color: var(--text
 .title { font-size: clamp(34px, 6vw, 52px); font-weight: 600; letter-spacing: -0.035em; line-height: 1.02; margin: 8px 0 0; }
 .title span { color: var(--text-3); }
 .fetch-bar { display: flex; gap: 8px; }
+.theme-btn { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--tile-2); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text); }
+.theme-btn svg { width: 18px; height: 18px; }
 .select, .input {
     background: var(--tile-2);
     border: 1px solid var(--line);
@@ -67,7 +117,7 @@ button, select, input { font-family: inherit; font-size: 14px; color: var(--text
     border-radius: 12px;
     border: none;
     background: var(--text);
-    color: #000;
+    color: var(--on-primary);
     font-weight: 600;
     cursor: pointer;
     transition: transform .15s var(--ease), opacity .2s;
@@ -78,7 +128,7 @@ button, select, input { font-family: inherit; font-size: 14px; color: var(--text
 .btn-primary.loading { position: relative; color: transparent; }
 .btn-primary.loading::after {
     content: ""; position: absolute; inset: 0; margin: auto; width: 16px; height: 16px;
-    border: 2px solid #0006; border-top-color: #000; border-radius: 50%; animation: spin .7s linear infinite;
+    border: 2px solid var(--line-2); border-top-color: var(--on-primary); border-radius: 50%; animation: spin .7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -117,18 +167,18 @@ button, select, input { font-family: inherit; font-size: 14px; color: var(--text
 }
 .tag i { width: 7px; height: 7px; border-radius: 2px; display: inline-block; }
 .dots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; width: 100%; max-width: 150px; }
-.dot { width: 8px; height: 8px; border-radius: 50%; border: 1px solid #23414d; justify-self: center; transition: background .4s var(--ease), border-color .4s; }
+.dot { width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--dot-off); justify-self: center; transition: background .4s var(--ease), border-color .4s; }
 .dot.on { background: var(--blue); border-color: var(--blue); }
 .heat { display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: repeat(7, auto); grid-auto-flow: column; gap: 3px; width: 100%; max-width: 190px; }
-.heat span { aspect-ratio: 1; border-radius: 2px; background: #161618; }
+.heat span { aspect-ratio: 1; border-radius: 2px; background: var(--h0); }
 .pipe { width: 100%; display: flex; flex-direction: column; gap: 9px; }
 .pipe-row { display: grid; grid-template-columns: 70px 1fr 26px; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; color: var(--text-2); }
-.pipe-row .track { height: 6px; background: #161618; border-radius: 3px; overflow: hidden; }
+.pipe-row .track { height: 6px; background: var(--track); border-radius: 3px; overflow: hidden; }
 .pipe-row .fill { height: 100%; border-radius: 3px; width: 0; transition: width .8s var(--ease); }
 .pipe-row b { text-align: right; color: var(--text); font-weight: 500; }
 .big-num { font-family: var(--mono); font-size: 30px; letter-spacing: -0.02em; }
 .big-num span { color: var(--text-3); }
-.bar { height: 6px; background: #161618; border-radius: 3px; margin-top: 12px; overflow: hidden; }
+.bar { height: 6px; background: var(--track); border-radius: 3px; margin-top: 12px; overflow: hidden; }
 .bar div { height: 100%; background: var(--green); border-radius: 3px; width: 0; transition: width .8s var(--ease); }
 
 /* segmented */
@@ -138,7 +188,7 @@ button, select, input { font-family: inherit; font-size: 14px; color: var(--text
     background: none; border: none; border-radius: 9px; padding: 8px 18px; color: var(--text-2);
     font-weight: 500; cursor: pointer; transition: background .25s var(--ease), color .25s;
 }
-.seg button.active { background: #2c2c2e; color: var(--text); }
+.seg button.active { background: var(--seg-on); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
 .seg .count { color: var(--text-3); margin-left: 6px; font-family: var(--mono); font-size: 12px; }
 .msg { font-size: 13px; color: var(--text-2); }
 
@@ -154,7 +204,7 @@ button, select, input { font-family: inherit; font-size: 14px; color: var(--text
     flex: none; background: transparent; border: 1px solid var(--line); border-radius: 999px;
     padding: 6px 13px; font-size: 12px; color: var(--text-2); cursor: pointer; transition: all .2s;
 }
-.chip.active { background: var(--text); border-color: var(--text); color: #000; }
+.chip.active { background: var(--text); border-color: var(--text); color: var(--on-primary); }
 
 /* leads */
 .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -193,7 +243,7 @@ details.pitch summary { cursor: pointer; font-size: 13px; color: var(--text-2); 
 details.pitch summary::-webkit-details-marker { display: none; }
 details.pitch summary::before { content: "+ "; font-family: var(--mono); }
 details.pitch[open] summary::before { content: "– "; }
-.pitch-text { margin-top: 10px; background: var(--tile-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; font-size: 13px; line-height: 1.55; color: #d6d6d9; }
+.pitch-text { margin-top: 10px; background: var(--tile-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; font-size: 13px; line-height: 1.55; color: var(--pitch); }
 .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: auto; padding-top: 16px; }
 .act {
     height: 40px; border-radius: 11px; border: 1px solid var(--line); background: var(--tile-2);
@@ -201,8 +251,8 @@ details.pitch[open] summary::before { content: "– "; }
     font-size: 13px; font-weight: 500; color: var(--text); cursor: pointer; transition: background .2s, transform .15s;
 }
 .act:active { transform: scale(.97); }
-.act:hover { background: #1c1c1f; }
-.act.wa { background: var(--green); border-color: var(--green); color: #00230b; }
+.act:hover { background: var(--hover); }
+.act.wa { background: var(--green); border-color: var(--green); color: var(--on-green); }
 .act.off { color: var(--text-3); pointer-events: none; background: transparent; }
 .status {
     appearance: none; -webkit-appearance: none; border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 500;
@@ -225,9 +275,9 @@ details.pitch[open] summary::before { content: "– "; }
 .actions.two { grid-template-columns: 1fr 1fr; }
 
 /* detail sheet */
-.scrim { position: fixed; inset: 0; background: rgba(0,0,0,.6); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); opacity: 0; pointer-events: none; transition: opacity .3s var(--ease); z-index: 30; }
+.scrim { position: fixed; inset: 0; background: var(--scrim); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); opacity: 0; pointer-events: none; transition: opacity .3s var(--ease); z-index: 30; }
 .scrim.open { opacity: 1; pointer-events: auto; }
-.sheet { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 100%); background: #0b0b0c; border-left: 1px solid var(--line); z-index: 31; transform: translateX(100%); transition: transform .42s var(--ease); display: flex; flex-direction: column; }
+.sheet { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 100%); background: var(--sheet); border-left: 1px solid var(--line); z-index: 31; transform: translateX(100%); transition: transform .42s var(--ease); display: flex; flex-direction: column; }
 .sheet.open { transform: none; }
 @media (max-width: 640px) { .sheet { top: 24px; border-left: none; border-top: 1px solid var(--line); border-radius: 22px 22px 0 0; transform: translateY(100%); } }
 .sheet-head { padding: 20px 22px 16px; border-bottom: 1px solid var(--line); }
@@ -249,11 +299,11 @@ details.pitch[open] summary::before { content: "– "; }
 .socials { display: flex; flex-wrap: wrap; gap: 6px; }
 .soc { font-size: 13px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--text); text-decoration: none; text-transform: capitalize; }
 .none { color: var(--text-3); font-size: 14px; }
-.desc { font-size: 15px; line-height: 1.55; color: #d6d6d9; margin: 0; }
+.desc { font-size: 15px; line-height: 1.55; color: var(--pitch); margin: 0; }
 
 .toast {
     position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 90px);
-    background: rgba(44, 44, 46, .92); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+    background: var(--toast); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
     color: var(--text); border: 1px solid var(--line-2); padding: 10px 18px; border-radius: 14px;
     font-size: 13px; font-weight: 500; transition: transform .35s var(--ease), visibility .35s; z-index: 20; visibility: hidden;
 }
@@ -281,6 +331,7 @@ details.pitch[open] summary::before { content: "– "; }
                 <option value="Dubai UAE">Dubai UAE</option>
                 <option value="Riyadh KSA">Riyadh KSA</option>
             </select>
+            <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" aria-label="Switch theme"></button>
             <button class="btn-primary" id="fetchBtn" onclick="fetchLeads()">Fetch leads</button>
         </div>
     </header>
@@ -462,10 +513,10 @@ function grade(score) {
 function ring(score, color) {
     const C = 2 * Math.PI * 26, len = Math.max(0, Math.min(100, score)) / 100 * C;
     return `<svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="Lead score ${score} of 100">
-        <circle cx="32" cy="32" r="26" fill="none" stroke="#1c1c1e" stroke-width="5"/>
+        <circle cx="32" cy="32" r="26" fill="none" style="stroke:var(--ring-track)" stroke-width="5"/>
         <circle cx="32" cy="32" r="26" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round"
             stroke-dasharray="${len.toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 32 32)"/>
-        <text x="32" y="38" text-anchor="middle" font-size="17" font-family="SF Mono, ui-monospace, Menlo, monospace" fill="#f5f5f7">${score}</text>
+        <text x="32" y="38" text-anchor="middle" font-size="17" font-family="SF Mono, ui-monospace, Menlo, monospace" style="fill:var(--text)">${score}</text>
     </svg>`;
 }
 
@@ -731,7 +782,7 @@ function renderHeat() {
     heat.innerHTML = '';
     const counts = {};
     savedLeads.forEach(l => { if (l.created_at) { const k = l.created_at.slice(0, 10); counts[k] = (counts[k] || 0) + 1; } });
-    const shades = ['#161618', '#3b1513', '#6e1f1b', '#b02f28', '#ff453a'];
+    const shades = ['var(--h0)', 'var(--h1)', 'var(--h2)', 'var(--h3)', 'var(--h4)'];
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const start = new Date(today); start.setDate(start.getDate() - 83 - start.getDay());
     for (let i = 0; i < 84; i++) {
@@ -812,6 +863,23 @@ function renderSaved() {
     }
     rows.forEach((l, i) => list.appendChild(renderLead(l, i)));
 }
+
+const SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg>';
+const MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z"/></svg>';
+function paintThemeBtn() {
+    const t = document.documentElement.getAttribute('data-theme');
+    const b = document.getElementById('themeBtn');
+    b.innerHTML = t === 'light' ? MOON : SUN;
+    b.setAttribute('aria-label', t === 'light' ? 'Switch to dark theme' : 'Switch to light theme');
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', t === 'light' ? '#f5f5f7' : '#000000');
+}
+function toggleTheme() {
+    const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('crmTheme', next); } catch {}
+    paintThemeBtn();
+}
+paintThemeBtn();
 
 function boot() {
     setToday(0, dailyLimit);
