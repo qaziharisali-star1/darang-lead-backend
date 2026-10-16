@@ -98,6 +98,53 @@ const REGIONS = [
     }
 ];
 
+// Business types searched in any city the user types.
+const NICHES = [
+    'interior design studio', 'fit out contractor', 'custom home builder', 'joinery company',
+    'luxury kitchen company', 'bespoke furniture maker', 'architecture firm', 'villa renovation company',
+    'custom cabinetry company', 'landscape design company'
+];
+
+const clean = v => String(v || '').replace(/[^\p{L}\p{N}\s.'-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+
+// Resolve the requested location: free-text city (+ optional area), or a legacy preset region.
+function resolveLocation(body) {
+    const city = clean(body.city);
+    const area = clean(body.area);
+    if (city) {
+        const preset = REGIONS.find(r => r.name.toLowerCase().startsWith(city.toLowerCase()));
+        const niche = NICHES[Math.floor(Math.random() * NICHES.length)];
+        const query = area ? `${niche} ${area} ${city}` : (preset && Math.random() < 0.5
+            ? preset.queries[Math.floor(Math.random() * preset.queries.length)]
+            : `${niche} ${city}`);
+        return { city, area, label: area ? `${area}, ${city}` : city, query };
+    }
+    let region = REGIONS[Math.floor(Math.random() * REGIONS.length)];
+    if (body.regionFilter && body.regionFilter !== 'all') {
+        const found = REGIONS.find(r => r.name.toLowerCase().includes(String(body.regionFilter).toLowerCase()));
+        if (found) region = found;
+    }
+    return { city: region.name.split(' ')[0], area: '', label: region.name, query: region.queries[Math.floor(Math.random() * region.queries.length)] };
+}
+
+const norm = t => String(t || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ');
+
+// City validation: the company's own pages must mention the city (and we record whether the area appears).
+function checkLocation(texts, loc) {
+    const all = norm(texts.join(' '));
+    const city = norm(loc.city);
+    const area = norm(loc.area);
+    const cityOk = city.length > 1 && all.includes(city);
+    const areaOk = !!area && all.includes(area);
+    let evidence = null;
+    const needle = areaOk ? area : city;
+    if (cityOk || areaOk) {
+        const i = all.indexOf(needle);
+        evidence = all.slice(Math.max(0, i - 60), i + needle.length + 60).trim();
+    }
+    return { city_ok: cityOk || areaOk, area_ok: areaOk, evidence };
+}
+
 // Social networks, directories and marketplaces are not a company's own website.
 const EXCLUDED_DOMAINS = [
     'instagram.com', 'facebook.com', 'linkedin.com', 'x.com', 'twitter.com', 'tiktok.com',
@@ -248,7 +295,8 @@ async function getPage(url, timeout = 7000) {
 }
 
 // Audit only what was actually measured on the company's own site.
-async function auditLead(result, regionName) {
+async function auditLead(result, loc) {
+    const regionName = loc.label;
     const page = await getPage(result.url);
     if (!page) return null; // unreachable site = not a verifiable lead
 
@@ -270,10 +318,12 @@ async function auditLead(result, regionName) {
     const aboutUrl = linkTo(/about|team|founder|leadership|our-story|who-we-are/i, '/about');
     const [cp, ap] = await Promise.all([getPage(contactUrl, 5000), getPage(aboutUrl, 5000)]);
     const pagesUsed = [page.finalUrl];
+    const texts = [$('body').text(), $('title').text()];
     for (const [extra, url] of [[cp, contactUrl], [ap, aboutUrl]]) {
         if (!extra) continue;
         pagesUsed.push(url);
         const $x = cheerio.load(extra.html);
+        texts.push($x('body').text());
         const c = extractContacts($x);
         c.emails.forEach(e => { if (!contacts.emails.includes(e) && contacts.emails.length < 5) contacts.emails.push(e); });
         c.phones.forEach(p => { if (!contacts.phones.some(q => q.replace(/\D/g, '') === p.replace(/\D/g, '')) && contacts.phones.length < 4) contacts.phones.push(p); });
@@ -285,6 +335,10 @@ async function auditLead(result, regionName) {
         details.description = details.description || d.description;
         findPeople($x).forEach(p => { if (!people.some(o => o.name === p.name) && people.length < 4) people.push(p); });
     }
+    texts.push(details.address || '');
+    const location = checkLocation(texts, loc);
+    if (!location.city_ok) return null; // site never mentions the chosen city: not a local lead
+
     const email = contacts.emails[0] || null;
     const phone = contacts.phones[0] || null;
     const person = people[0] || null;
@@ -317,7 +371,9 @@ async function auditLead(result, regionName) {
         instagram: instagramUrl ? 10 : 0
     };
     const score = Object.values(breakdown).reduce((a, b) => a + b, 0);
-    if (score < MIN_SCORE) return null; // weak lead: not saved, doesn't count toward the daily 25
+    // Only potential leads: in the chosen city, reachable directly, and scoring 50+.
+    if (!email && !phone) return null;    // no way to reach them
+    if (score < MIN_SCORE) return null;   // weak lead: not saved, doesn't count toward the daily 25
     const greet = person ? person.name.split(' ')[0] : `${company} team`;
 
     const pitch = hasIssues
@@ -350,6 +406,7 @@ async function auditLead(result, regionName) {
             founded: details.founded,
             description: details.description,
             issues,
+            location: { city: loc.city, area: loc.area || null, ...location },
             response_secs: Number(secs),
             https: page.finalUrl.startsWith('https://'),
             pages_checked: pagesUsed,
@@ -367,14 +424,8 @@ app.post('/api/fetch-leads', requireKey, async (req, res) => {
             throw new Error("Missing TAVILY_API_KEY in Vercel Environment Variables.");
         }
         const db = getSupabase();
-        const { regionFilter } = req.body || {};
-
-        let region = REGIONS[Math.floor(Math.random() * REGIONS.length)];
-        if (regionFilter && regionFilter !== 'all') {
-            const found = REGIONS.find(r => r.name.toLowerCase().includes(regionFilter.toLowerCase()));
-            if (found) region = found;
-        }
-        const query = region.queries[Math.floor(Math.random() * region.queries.length)];
+        const loc = resolveLocation(req.body || {});
+        const query = loc.query;
 
         // Daily cap is checked BEFORE searching, so a full day costs zero extra Tavily credits.
         const todayCount = await countToday(db);
@@ -417,7 +468,7 @@ app.post('/api/fetch-leads', requireKey, async (req, res) => {
         }
 
         // Audit up to 12 sites in parallel (free) and keep the best-scoring ones.
-        const audited = await Promise.all(candidates.slice(0, 12).map(c => auditLead(c, region.name)));
+        const audited = await Promise.all(candidates.slice(0, 12).map(c => auditLead(c, loc)));
         const leads = [];
         audited.sort((a, b) => (b ? b.lead_score : -1) - (a ? a.lead_score : -1));
         for (const lead of audited) {
@@ -430,7 +481,7 @@ app.post('/api/fetch-leads', requireKey, async (req, res) => {
         }
 
         if (leads.length === 0) {
-            return res.json({ success: false, message: `Checked ${Math.min(candidates.length, 12)} companies, none scored ${MIN_SCORE}+ (real contacts are missing). Tap FETCH for another batch.` });
+            return res.json({ success: false, message: `Checked ${Math.min(candidates.length, 12)} companies, none were both in ${loc.label} and scored ${MIN_SCORE}+. Tap Fetch for another batch.` });
         }
 
 
@@ -440,7 +491,7 @@ app.post('/api/fetch-leads', requireKey, async (req, res) => {
 
         if (dbError) throw dbError;
 
-        return res.json({ success: true, query, leads, todayCount: todayCount + leads.length, dailyLimit: DAILY_LIMIT });
+        return res.json({ success: true, query, location: loc.label, leads, todayCount: todayCount + leads.length, dailyLimit: DAILY_LIMIT });
 
     } catch (err) {
         console.error("Fetch Error:", err);

@@ -97,7 +97,9 @@ button, select, input { font-family: inherit; font-size: 14px; color: var(--text
 .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; color: var(--text-3); text-transform: uppercase; }
 .title { font-size: clamp(34px, 6vw, 52px); font-weight: 600; letter-spacing: -0.035em; line-height: 1.02; margin: 8px 0 0; }
 .title span { color: var(--text-3); }
-.fetch-bar { display: flex; gap: 8px; }
+.fetch-bar { display: flex; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 560px) { .fetch-bar { width: 100%; } .fetch-bar .input { flex: 1 1 40%; width: auto !important; } .fetch-bar .btn-primary { flex: 1 1 auto; } }
+.loc-ok { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--green); margin-top: 6px; }
 .theme-btn { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--line); background: var(--tile-2); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text); }
 .theme-btn svg { width: 18px; height: 18px; }
 .select, .input {
@@ -325,12 +327,13 @@ details.pitch[open] summary::before { content: "– "; }
             <h1 class="title">Real people.<br><span>Real leads.</span></h1>
         </div>
         <div class="fetch-bar" id="fetchBar">
-            <select class="select" id="regionSelect" aria-label="Region">
-                <option value="all">All regions</option>
-                <option value="Houston TX">Houston TX</option>
-                <option value="Dubai UAE">Dubai UAE</option>
-                <option value="Riyadh KSA">Riyadh KSA</option>
-            </select>
+            <input class="input" id="cityInput" list="cityList" placeholder="City" aria-label="City" autocomplete="off" style="width:150px">
+            <input class="input" id="areaInput" placeholder="Area (optional)" aria-label="Area" autocomplete="off" style="width:160px">
+            <datalist id="cityList">
+                <option value="Dubai"><option value="Abu Dhabi"><option value="Sharjah"><option value="Riyadh"><option value="Jeddah">
+                <option value="Doha"><option value="Houston"><option value="Dallas"><option value="Miami"><option value="London">
+                <option value="Karachi"><option value="Lahore"><option value="Islamabad">
+            </datalist>
             <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" aria-label="Switch theme"></button>
             <button class="btn-primary" id="fetchBtn" onclick="fetchLeads()">Fetch leads</button>
         </div>
@@ -397,7 +400,7 @@ details.pitch[open] summary::before { content: "– "; }
                 <button class="active" data-tab="discover" onclick="showTab('discover')">Discover</button>
                 <button data-tab="saved" onclick="showTab('saved')">Saved<span class="count" id="savedCount"></span></button>
             </div>
-            <div class="msg" id="msg">Fetch finds up to 5 scored leads with real contacts.</div>
+            <div class="msg" id="msg">Type a city (and area if you like). Only companies whose own site mentions it are kept.</div>
         </div>
 
         <section class="view active" id="view-discover">
@@ -409,11 +412,8 @@ details.pitch[open] summary::before { content: "– "; }
         <section class="view" id="view-saved">
             <div class="filters">
                 <input class="input" type="search" id="searchInput" placeholder="Search company, person, email" oninput="renderSaved()">
-                <select class="select" id="savedRegion" onchange="renderSaved()" aria-label="Filter region">
-                    <option value="all">All regions</option>
-                    <option value="Houston TX">Houston TX</option>
-                    <option value="Dubai UAE">Dubai UAE</option>
-                    <option value="Riyadh KSA">Riyadh KSA</option>
+                <select class="select" id="savedRegion" onchange="renderSaved()" aria-label="Filter location">
+                    <option value="all">All locations</option>
                 </select>
                 <select class="select" id="sortBy" onchange="renderSaved()" aria-label="Sort">
                     <option value="score">Best score</option>
@@ -530,7 +530,7 @@ function detailsOf(l) {
         socials: d.socials || (l.instagram_link ? { instagram: l.instagram_link } : {}),
         issues: d.issues || (l.website_issue && !/^No major/i.test(l.website_issue) ? l.website_issue.replace(/\.$/, '').split(/;\s*/) : []),
         address: d.address, maps: d.maps, founded: d.founded, description: d.description,
-        response: d.response_secs, https: d.https, pages: d.pages_checked || [], query: d.search_query
+        response: d.response_secs, https: d.https, location: d.location, pages: d.pages_checked || [], query: d.search_query
     };
 }
 function waLink(l) {
@@ -600,6 +600,8 @@ function openSheet(lead) {
     left.appendChild(el('div', { class: 'lead-name', style: 'font-size:24px' }, lead.company_name));
     const site = el('a', { class: 'lnk', href: lead.source_link || `https://${lead.website}`, target: '_blank', rel: 'noopener', style: 'font-size:14px;color:var(--text-2)' }, lead.website);
     left.appendChild(site);
+    const lc = (lead.details || {}).location;
+    if (lc && lc.city_ok) left.appendChild(el('div', { class: 'loc-ok' }, lc.area_ok ? `✓ Area verified on their site: ${lc.area}` : `✓ City verified on their site: ${lc.city}`));
     const sel = el('select', { class: 'status', 'aria-label': 'Status', style: 'margin-top:12px;display:block' });
     STATUSES.forEach(s => sel.add(new Option(s, s, false, s === (lead.status || 'New'))));
     const paint = () => { sel.style.color = STATUS_COLOR[sel.value]; sel.style.borderColor = STATUS_COLOR[sel.value]; };
@@ -662,6 +664,7 @@ function openSheet(lead) {
     const skv = el('dl', { class: 'kv' });
     const addS = (k, v) => { skv.appendChild(el('dt', {}, k)); skv.appendChild(el('dd', { style: 'color:var(--text-2)' }, v)); };
     if (d.query) addS('Found by', `"${d.query}"`);
+    if (d.location && d.location.evidence) addS('Location proof', `“…${d.location.evidence}…”`);
     addS('Pages read', d.pages.length ? d.pages.map(u => u.replace(/^https?:\/\/(www\.)?/, '')).join(', ') : lead.website);
     addS('Verified', lead.recent_activity_evidence || fmtDate(lead.created_at));
     src.appendChild(skv);
@@ -722,11 +725,15 @@ const setMsg = t => document.getElementById('msg').textContent = t;
 /* ---------- fetch ---------- */
 async function fetchLeads() {
     const btn = document.getElementById('fetchBtn');
+    const city = document.getElementById('cityInput').value.trim();
+    const area = document.getElementById('areaInput').value.trim();
+    if (!city) { setMsg('Type a city first, for example Dubai or Lahore.'); document.getElementById('cityInput').focus(); return; }
+    try { localStorage.setItem('crmLoc', JSON.stringify({ city, area })); } catch {}
     btn.disabled = true; btn.classList.add('loading');
     showTab('discover');
-    setMsg('Searching and checking each company site. About 15 seconds.');
+    setMsg(`Searching ${area ? area + ', ' : ''}${city} and checking each site. About 15 seconds.`);
     try {
-        const data = await api('/api/fetch-leads', { method: 'POST', body: JSON.stringify({ regionFilter: document.getElementById('regionSelect').value }) });
+        const data = await api('/api/fetch-leads', { method: 'POST', body: JSON.stringify({ city, area }) });
         if (!data.success) {
             setMsg(data.message || 'No new leads this time. Try again.');
             if (data.limitReached) setToday(data.todayCount, data.dailyLimit);
@@ -823,10 +830,19 @@ async function loadSaved() {
         if (!data.success) { setMsg(data.message); return; }
         savedLeads = data.leads;
         savedLoaded = true;
-        renderHeat(); renderPipeline(); renderChips(); renderSaved();
+        renderHeat(); renderPipeline(); renderLocations(); renderChips(); renderSaved();
     } catch (err) {
         if (err.message !== 'locked') setMsg('Couldn\'t load saved leads.');
     }
+}
+function renderLocations() {
+    const sel = document.getElementById('savedRegion');
+    const cur = sel.value;
+    const locs = [...new Set(savedLeads.map(l => l.region).filter(Boolean))].sort();
+    sel.innerHTML = '';
+    sel.add(new Option('All locations', 'all'));
+    locs.forEach(l => sel.add(new Option(l, l)));
+    sel.value = locs.includes(cur) ? cur : 'all';
 }
 function renderChips() {
     const counts = { all: savedLeads.length };
@@ -882,6 +898,7 @@ function toggleTheme() {
 paintThemeBtn();
 
 function boot() {
+    try { const l = JSON.parse(localStorage.getItem('crmLoc') || 'null'); if (l) { document.getElementById('cityInput').value = l.city || ''; document.getElementById('areaInput').value = l.area || ''; } } catch {}
     setToday(0, dailyLimit);
     loadStats();
     loadSaved();
