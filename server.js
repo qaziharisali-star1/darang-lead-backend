@@ -146,6 +146,59 @@ function extractContacts($) {
     return { email, phone };
 }
 
+const MIN_SCORE = 50;
+
+const ROLE_RE = /\b(co-?founder|founder|owner|ceo|chief executive|managing director|managing partner|principal|president|creative director|design director|general manager|director)\b/i;
+const NOT_NAME = new Set(('our the team meet about us interior interiors design designs studio studios company group llc ltd inc fzco fze ' +
+    'contracting contractors construction home homes kitchen kitchens dubai riyadh houston texas saudi arabia uae ' +
+    'founder owner director managing principal partner president chief executive creative general manager ' +
+    'and of for with at by in on read more view contact services projects portfolio leadership welcome').split(' '));
+
+function looksLikeName(str) {
+    const words = str.trim().split(/\s+/);
+    if (words.length < 2 || words.length > 4) return false;
+    return words.every(w => /^[A-Z][a-zA-Z'’.-]{1,20}$/.test(w) && !NOT_NAME.has(w.toLowerCase().replace(/[.'’]/g, '')));
+}
+
+// Find a named decision-maker. Only returns a person the site actually names next to a senior role.
+function findDecisionMaker($) {
+    // 1. Structured data (schema.org founder / employee)
+    let found = null;
+    $('script[type="application/ld+json"]').each((i, el) => {
+        if (found) return;
+        try {
+            const json = JSON.parse($(el).contents().text());
+            const nodes = [].concat(json['@graph'] || json);
+            for (const n of nodes) {
+                const f = n && (n.founder || n.founders);
+                const person = Array.isArray(f) ? f[0] : f;
+                const name = person && (typeof person === 'string' ? person : person.name);
+                if (name && looksLikeName(name)) { found = { name, role: 'Founder' }; return; }
+            }
+        } catch { /* ignore bad JSON-LD */ }
+    });
+    if (found) return found;
+
+    // 2. Visible text: "Name — Founder", "Founder: Name", or a name heading followed by a role line
+    const blocks = $('h1,h2,h3,h4,h5,h6,p,li,strong,b,span,figcaption,div').toArray();
+    for (let i = 0; i < blocks.length && !found; i++) {
+        const el = blocks[i];
+        if ($(el).children().length > 3) continue;
+        const text = $(el).text().replace(/\s+/g, ' ').trim();
+        if (!text || text.length > 140) continue;
+        const role = text.match(ROLE_RE);
+        if (!role) continue;
+
+        const parts = text.split(/\s*[,|–—:•\-]\s*|\s{2,}/).map(t => t.trim()).filter(Boolean);
+        const name = parts.find(looksLikeName);
+        if (name) { found = { name, role: role[0].replace(/^\w/, c => c.toUpperCase()) }; break; }
+
+        const prev = $(el).prev().text().replace(/\s+/g, ' ').trim();
+        if (looksLikeName(prev)) { found = { name: prev, role: role[0].replace(/^\w/, c => c.toUpperCase()) }; break; }
+    }
+    return found;
+}
+
 function companyNameFrom($, fallbackTitle, host) {
     const og = $('meta[property="og:site_name"]').attr('content');
     const raw = (og || $('title').first().text() || fallbackTitle || host || '').trim();
@@ -176,19 +229,26 @@ async function auditLead(result, regionName) {
     const $ = cheerio.load(page.html);
     let { email, phone } = extractContacts($);
 
-    // Contact details often live on a contact page — check it once if the homepage lacked them.
-    if (!email || !phone) {
-        try {
-            const origin = new URL(page.finalUrl).origin;
-            const contactHref = $('a[href*="contact"]').first().attr('href');
-            const contactUrl = contactHref ? new URL(contactHref, origin).href : origin + '/contact';
-            const cp = await getPage(contactUrl, 5000);
-            if (cp) {
-                const c = extractContacts(cheerio.load(cp.html));
-                email = email || c.email;
-                phone = phone || c.phone;
-            }
-        } catch { /* contact page optional */ }
+    let person = findDecisionMaker($);
+
+    // Contact and About pages fetched in parallel (no Tavily credits used).
+    const origin = new URL(page.finalUrl).origin;
+    const linkTo = (re, fallback) => {
+        const href = $('a[href]').filter((i, el) => re.test($(el).attr('href') || '') || re.test($(el).text())).first().attr('href');
+        try { return href ? new URL(href, origin).href : origin + fallback; } catch { return origin + fallback; }
+    };
+    const needContact = !email || !phone;
+    const [cp, ap] = await Promise.all([
+        needContact ? getPage(linkTo(/contact/i, '/contact'), 5000) : null,
+        !person ? getPage(linkTo(/about|team|founder|leadership|our-story|who-we-are/i, '/about'), 5000) : null
+    ]);
+    for (const extra of [cp, ap]) {
+        if (!extra) continue;
+        const $x = cheerio.load(extra.html);
+        const c = extractContacts($x);
+        email = email || c.email;
+        phone = phone || c.phone;
+        if (!person) person = findDecisionMaker($x);
     }
 
     const issues = [];
@@ -213,9 +273,21 @@ async function auditLead(result, regionName) {
     const company = companyNameFrom($, result.title, host);
     const hasIssues = issues.length > 0;
 
+    // Lead score: only from what was actually found on their site.
+    const breakdown = {
+        email: email ? 25 : 0,
+        phone: phone ? 25 : 0,
+        decision_maker: person ? 20 : 0,
+        website_issues: issues.length >= 3 ? 20 : issues.length === 2 ? 15 : issues.length === 1 ? 10 : 0,
+        instagram: instagramUrl ? 10 : 0
+    };
+    const score = Object.values(breakdown).reduce((a, b) => a + b, 0);
+    if (score < MIN_SCORE) return null; // weak lead: not saved, doesn't count toward the daily 25
+    const greet = person ? person.name.split(' ')[0] : `${company} team`;
+
     const pitch = hasIssues
-        ? `Hi ${company} team, I came across your work in ${regionName}. While looking at ${host} I noticed: ${issues[0]}. Fixing that tends to keep more mobile visitors on the page. We build fast, modern showcase sites for premium design and build studios. Would a quick mockup of your homepage be useful?`
-        : `Hi ${company} team, I came across your work in ${regionName}. Your site is already in good shape. We produce cinematic AI product and project films for premium studios. Open to seeing a short sample made from one of your projects?`;
+        ? `Hi ${greet}, I came across ${company}'s work in ${regionName}. While looking at ${host} I noticed: ${issues[0]}. Fixing that tends to keep more mobile visitors on the page. We build fast, modern showcase sites for premium design and build studios. Would a quick mockup of your homepage be useful?`
+        : `Hi ${greet}, I came across ${company}'s work in ${regionName}. Your site is already in good shape. We produce cinematic AI product and project films for premium studios. Open to seeing a short sample made from one of your projects?`;
 
     return {
         company_name: company,
@@ -228,9 +300,13 @@ async function auditLead(result, regionName) {
             : 'No major website issues found. Low priority for a web redesign pitch.',
         target_package: issues.length >= 2 ? "Total Brand Dominance ($2,200)" : (hasIssues ? "Brand Elevate ($1,150)" : "Content / AI film pitch"),
         pitch_text: pitch,
-        status: hasIssues ? "New" : "Low priority",
+        status: "New",
         source_link: page.finalUrl,
         instagram_link: instagramUrl,
+        lead_score: score,
+        score_breakdown: breakdown,
+        contact_name: person ? person.name : null,
+        contact_role: person ? person.role : null,
         recent_activity_evidence: `Site reachable on ${new Date().toISOString().slice(0, 10)} (${secs}s response)`
     };
 }
@@ -290,9 +366,10 @@ app.post('/api/fetch-leads', requireKey, async (req, res) => {
             return res.json({ success: false, message: `No new company websites found for "${query}". Tap FETCH again.` });
         }
 
-        // Audit up to 8 sites in parallel and keep the first 5 that are reachable.
-        const audited = await Promise.all(candidates.slice(0, 8).map(c => auditLead(c, region.name)));
+        // Audit up to 12 sites in parallel (free) and keep the best-scoring ones.
+        const audited = await Promise.all(candidates.slice(0, 12).map(c => auditLead(c, region.name)));
         const leads = [];
+        audited.sort((a, b) => (b ? b.lead_score : -1) - (a ? a.lead_score : -1));
         for (const lead of audited) {
             if (!lead) continue;
             const key = lead.company_name.toLowerCase();
@@ -303,11 +380,9 @@ app.post('/api/fetch-leads', requireKey, async (req, res) => {
         }
 
         if (leads.length === 0) {
-            return res.json({ success: false, message: "Found companies, but none had a reachable website. Tap FETCH again." });
+            return res.json({ success: false, message: `Checked ${Math.min(candidates.length, 12)} companies, none scored ${MIN_SCORE}+ (real contacts are missing). Tap FETCH for another batch.` });
         }
 
-        // Leads with a real website issue go first.
-        leads.sort((a, b) => (a.status === 'New' ? 0 : 1) - (b.status === 'New' ? 0 : 1));
 
         const { error: dbError } = await db
             .from(TABLE)

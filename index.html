@@ -1,649 +1,681 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Darang Studio CRM</title>
-    <style>
-        :root {
-            --bg-color: #0d0d0d;
-            --card-bg: #171717;
-            --accent-gold: #d4af37;
-            --text-main: #f5f5f7;
-            --text-sub: #a1a1a6;
-            --border-color: #262626;
-            --s-new: #d4af37;
-            --s-contacted: #5ac8fa;
-            --s-replied: #bf8cff;
-            --s-won: #30d158;
-            --s-lost: #ff6961;
-            --s-low: #6e6e73;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Darang Leads</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg: #000;
+    --tile: #0b0b0c;
+    --tile-2: #141416;
+    --line: #1f1f22;
+    --line-2: #2c2c30;
+    --text: #f5f5f7;
+    --text-2: #a1a1a6;
+    --text-3: #636366;
+    --gold: #d4af37;
+    --blue: #64d2ff;
+    --purple: #bf5af2;
+    --green: #30d158;
+    --red: #ff453a;
+    --orange: #ff9f0a;
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Helvetica Neue", Arial, sans-serif;
+    --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    --ease: cubic-bezier(.2, .8, .2, 1);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+html { background: var(--bg); }
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.01em;
+}
+.page { max-width: 1080px; margin: 0 auto; padding: 28px 16px 80px; }
+button, select, input { font-family: inherit; font-size: 14px; color: var(--text); }
 
-        * { box-sizing: border-box; }
+/* header */
+.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; }
+.eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; color: var(--text-3); text-transform: uppercase; }
+.title { font-size: clamp(34px, 6vw, 52px); font-weight: 600; letter-spacing: -0.035em; line-height: 1.02; margin: 8px 0 0; }
+.title span { color: var(--text-3); }
+.fetch-bar { display: flex; gap: 8px; }
+.select, .input {
+    background: var(--tile-2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    height: 44px;
+    padding: 0 14px;
+    outline: none;
+    transition: border-color .2s;
+}
+.select:focus, .input:focus { border-color: var(--line-2); }
+.select { appearance: none; -webkit-appearance: none; padding-right: 34px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23a1a1a6' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; }
+.btn-primary {
+    height: 44px;
+    padding: 0 22px;
+    border-radius: 12px;
+    border: none;
+    background: var(--text);
+    color: #000;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform .15s var(--ease), opacity .2s;
+    white-space: nowrap;
+}
+.btn-primary:active { transform: scale(.97); }
+.btn-primary:disabled { opacity: .35; cursor: not-allowed; }
+.btn-primary.loading { position: relative; color: transparent; }
+.btn-primary.loading::after {
+    content: ""; position: absolute; inset: 0; margin: auto; width: 16px; height: 16px;
+    border: 2px solid #0006; border-top-color: #000; border-radius: 50%; animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            margin: 0;
-            padding: 20px 16px 60px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-        }
+/* bento */
+.bento { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 28px; }
+@media (max-width: 860px) { .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) {
+    .bento { gap: 10px; }
+    .tile { padding: 14px; min-height: 180px; border-radius: 18px; }
+    .tile-cap { font-size: 12px; }
+    .pipe-row { grid-template-columns: 54px 1fr 18px; gap: 6px; font-size: 10px; }
+    .dots { gap: 9px; }
+    .big-num { font-size: 24px; }
+}
+@media (max-width: 340px) { .bento { grid-template-columns: 1fr; } }
+.tile {
+    background: var(--tile);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 18px;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    transition: border-color .3s;
+}
+.tile:hover { border-color: var(--line-2); }
+.tile-vis { min-height: 96px; display: flex; align-items: center; }
+.tile-cap { font-size: 13px; color: var(--text-2); margin: 14px 0 0; line-height: 1.45; }
+.tile-cap b { color: var(--text); font-weight: 600; }
+.tag {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 10px;
+    font-size: 11px; color: var(--text-2);
+    background: var(--tile-2); border: 1px solid var(--line); border-radius: 7px; padding: 3px 8px;
+}
+.tag i { width: 7px; height: 7px; border-radius: 2px; display: inline-block; }
+.dots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; width: 100%; max-width: 150px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; border: 1px solid #23414d; justify-self: center; transition: background .4s var(--ease), border-color .4s; }
+.dot.on { background: var(--blue); border-color: var(--blue); }
+.heat { display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: repeat(7, auto); grid-auto-flow: column; gap: 3px; width: 100%; max-width: 190px; }
+.heat span { aspect-ratio: 1; border-radius: 2px; background: #161618; }
+.pipe { width: 100%; display: flex; flex-direction: column; gap: 9px; }
+.pipe-row { display: grid; grid-template-columns: 70px 1fr 26px; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; color: var(--text-2); }
+.pipe-row .track { height: 6px; background: #161618; border-radius: 3px; overflow: hidden; }
+.pipe-row .fill { height: 100%; border-radius: 3px; width: 0; transition: width .8s var(--ease); }
+.pipe-row b { text-align: right; color: var(--text); font-weight: 500; }
+.big-num { font-family: var(--mono); font-size: 30px; letter-spacing: -0.02em; }
+.big-num span { color: var(--text-3); }
+.bar { height: 6px; background: #161618; border-radius: 3px; margin-top: 12px; overflow: hidden; }
+.bar div { height: 100%; background: var(--green); border-radius: 3px; width: 0; transition: width .8s var(--ease); }
 
-        .wrap { width: 100%; max-width: 520px; }
+/* segmented */
+.seg-wrap { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.seg { display: inline-flex; background: var(--tile-2); border: 1px solid var(--line); border-radius: 12px; padding: 3px; }
+.seg button {
+    background: none; border: none; border-radius: 9px; padding: 8px 18px; color: var(--text-2);
+    font-weight: 500; cursor: pointer; transition: background .25s var(--ease), color .25s;
+}
+.seg button.active { background: #2c2c2e; color: var(--text); }
+.seg .count { color: var(--text-3); margin-left: 6px; font-family: var(--mono); font-size: 12px; }
+.msg { font-size: 13px; color: var(--text-2); }
 
-        .header { text-align: center; margin-bottom: 20px; }
+.view { display: none; }
+.view.active { display: block; animation: fade .4s var(--ease); }
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-        .header h1 {
-            font-size: 24px;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            color: var(--accent-gold);
-            margin: 0 0 6px 0;
-        }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.filters .input { flex: 1 1 220px; min-width: 0; }
+.chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 4px; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+    flex: none; background: transparent; border: 1px solid var(--line); border-radius: 999px;
+    padding: 6px 13px; font-size: 12px; color: var(--text-2); cursor: pointer; transition: all .2s;
+}
+.chip.active { background: var(--text); border-color: var(--text); color: #000; }
 
-        .header p { color: var(--text-sub); font-size: 13px; margin: 0; }
+/* leads */
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+.lead {
+    background: var(--tile);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    animation: rise .5s var(--ease) both;
+    transition: border-color .3s, opacity .3s;
+}
+.lead:hover { border-color: var(--line-2); }
+.lead[data-status="Lost"] { opacity: .5; }
+@keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.lead-head { display: flex; justify-content: space-between; gap: 14px; }
+.lead-name { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; margin: 6px 0 2px; word-break: break-word; }
+.lead-person { font-size: 14px; color: var(--text-2); }
+.lead-person.none { color: var(--text-3); }
+.ring { flex: none; text-align: center; }
+.ring svg { display: block; }
+.ring .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; margin-top: 4px; }
+.checks { margin-top: 16px; border-top: 1px solid var(--line); }
+.check { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.check span:first-child { color: var(--text-2); flex: none; }
+.check span:last-child { text-align: right; word-break: break-word; }
+.check .ok { color: var(--text); }
+.check .no { color: var(--text-3); }
+.pts { font-family: var(--mono); font-size: 11px; color: var(--text-3); margin-left: 8px; }
+.pts.got { color: var(--green); }
+.audit { font-size: 13px; color: var(--text-2); margin-top: 12px; line-height: 1.5; }
+details.pitch { margin-top: 12px; }
+details.pitch summary { cursor: pointer; font-size: 13px; color: var(--text-2); list-style: none; }
+details.pitch summary::-webkit-details-marker { display: none; }
+details.pitch summary::before { content: "+ "; font-family: var(--mono); }
+details.pitch[open] summary::before { content: "– "; }
+.pitch-text { margin-top: 10px; background: var(--tile-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; font-size: 13px; line-height: 1.55; color: #d6d6d9; }
+.actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: auto; padding-top: 16px; }
+.act {
+    height: 40px; border-radius: 11px; border: 1px solid var(--line); background: var(--tile-2);
+    display: flex; align-items: center; justify-content: center; text-decoration: none;
+    font-size: 13px; font-weight: 500; color: var(--text); cursor: pointer; transition: background .2s, transform .15s;
+}
+.act:active { transform: scale(.97); }
+.act:hover { background: #1c1c1f; }
+.act.wa { background: var(--green); border-color: var(--green); color: #00230b; }
+.act.off { color: var(--text-3); pointer-events: none; background: transparent; }
+.status {
+    appearance: none; -webkit-appearance: none; border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 500;
+    border: 1px solid var(--line-2); background: var(--tile-2); cursor: pointer; outline: none;
+}
+.meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.empty { grid-column: 1 / -1; text-align: center; color: var(--text-2); padding: 56px 16px; border: 1px dashed var(--line); border-radius: 20px; }
+.empty b { display: block; color: var(--text); font-size: 17px; font-weight: 600; margin-bottom: 4px; }
 
-        .tabs {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 4px;
-            margin-bottom: 18px;
-        }
+.toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 90px);
+    background: rgba(44, 44, 46, .92); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+    color: var(--text); border: 1px solid var(--line-2); padding: 10px 18px; border-radius: 14px;
+    font-size: 13px; font-weight: 500; transition: transform .35s var(--ease), visibility .35s; z-index: 20; visibility: hidden;
+}
+.toast.show { transform: translate(-50%, 0); visibility: visible; }
 
-        .tab {
-            background: none;
-            border: none;
-            color: var(--text-sub);
-            padding: 10px;
-            border-radius: 7px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
-        .tab.active { background: #262626; color: var(--text-main); }
-
-        .tab .count { color: var(--accent-gold); font-weight: 600; margin-left: 4px; }
-
-        .view { display: none; }
-        .view.active { display: block; }
-
-        .controls { display: flex; gap: 10px; margin-bottom: 12px; }
-
-        select, button, input {
-            background: var(--card-bg);
-            color: var(--text-main);
-            border: 1px solid var(--border-color);
-            padding: 12px 14px;
-            border-radius: 8px;
-            font-size: 14px;
-            outline: none;
-            font-family: inherit;
-        }
-
-        select, input { flex: 1; min-width: 0; }
-
-        input::placeholder { color: var(--text-sub); }
-
-        button.btn-fetch {
-            background: var(--accent-gold);
-            color: #000;
-            font-weight: 600;
-            border: none;
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
-
-        button.btn-fetch:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .status-msg {
-            margin: 4px 0 8px;
-            font-size: 13px;
-            color: var(--text-sub);
-            text-align: center;
-            min-height: 18px;
-        }
-
-        .stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-
-        .stat {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 10px 12px;
-        }
-
-        .stat-num { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
-        .stat-label { font-size: 11px; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
-
-        .chips {
-            display: flex;
-            gap: 6px;
-            overflow-x: auto;
-            padding-bottom: 6px;
-            margin-bottom: 6px;
-            scrollbar-width: none;
-        }
-
-        .chips::-webkit-scrollbar { display: none; }
-
-        .chip {
-            flex: none;
-            padding: 7px 12px;
-            border-radius: 999px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-
-        .chip.active { background: var(--text-main); color: #000; border-color: var(--text-main); }
-
-        .lead-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-left: 3px solid var(--s-new);
-            border-radius: 12px;
-            padding: 18px;
-            margin-top: 14px;
-        }
-
-        .lead-card[data-status="Contacted"] { border-left-color: var(--s-contacted); }
-        .lead-card[data-status="Replied"] { border-left-color: var(--s-replied); }
-        .lead-card[data-status="Won"] { border-left-color: var(--s-won); }
-        .lead-card[data-status="Lost"] { border-left-color: var(--s-lost); opacity: 0.6; }
-        .lead-card[data-status="Low priority"] { border-left-color: var(--s-low); opacity: 0.75; }
-
-        .card-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 10px;
-        }
-
-        .company-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; word-break: break-word; }
-
-        .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
-
-        .badge {
-            background: #262626;
-            color: var(--accent-gold);
-            font-size: 11px;
-            padding: 4px 8px;
-            border-radius: 4px;
-            text-transform: uppercase;
-        }
-
-        .badge.date { color: var(--text-sub); text-transform: none; }
-
-        select.status-select {
-            flex: none;
-            padding: 6px 8px;
-            font-size: 12px;
-            font-weight: 600;
-            border-radius: 6px;
-        }
-
-        .info-group { margin-bottom: 10px; }
-
-        .info-label {
-            font-size: 11px;
-            color: var(--text-sub);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 2px;
-        }
-
-        .info-value { font-size: 14px; color: var(--text-main); word-break: break-word; }
-
-        .muted { color: var(--text-sub); font-style: italic; }
-
-        .pitch-box {
-            background: #0d0d0d;
-            border: 1px dashed var(--accent-gold);
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 13px;
-            line-height: 1.5;
-            color: #e5e5e5;
-            margin-top: 12px;
-        }
-
-        .actions {
-            margin-top: 14px;
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 8px;
-        }
-
-        .action-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-decoration: none;
-            padding: 11px 6px;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 600;
-            text-align: center;
-            border: none;
-            cursor: pointer;
-            font-family: inherit;
-        }
-
-        .btn-wa { background: #25d366; color: #000; }
-        .btn-link { background: #262626; color: var(--text-main); }
-        .action-btn.disabled { background: #1f1f1f; color: var(--text-sub); pointer-events: none; }
-
-        details.more { margin-top: 8px; }
-        details.more summary { font-size: 12px; color: var(--text-sub); cursor: pointer; }
-
-        .empty {
-            text-align: center;
-            color: var(--text-sub);
-            font-size: 14px;
-            padding: 40px 10px;
-        }
-
-        .toast {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%) translateY(80px);
-            background: var(--text-main);
-            color: #000;
-            padding: 10px 16px;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 600;
-            transition: transform 0.25s;
-            z-index: 10;
-        }
-
-        .toast.show { transform: translateX(-50%) translateY(0); }
-
-        .lock {
-            text-align: center;
-            padding: 40px 0;
-        }
-
-        .lock p { color: var(--text-sub); font-size: 14px; }
-
-        .lock .controls { max-width: 360px; margin: 0 auto; }
-    </style>
+.lock { min-height: 70vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px; }
+.lock p { color: var(--text-2); margin: 0; }
+.lock form { display: flex; gap: 8px; width: 100%; max-width: 360px; }
+.lock .input { flex: 1; }
+.foot { margin-top: 48px; text-align: center; font-family: var(--mono); font-size: 11px; color: var(--text-3); letter-spacing: .08em; }
+</style>
 </head>
 <body>
-<div class="wrap">
+<div class="page">
 
-    <div class="header">
-        <h1>Darang Lead Engine</h1>
-        <p>Live Discovery & Custom Pitching</p>
-    </div>
-
-    <div class="lock" id="lockView" hidden>
-        <p>This CRM is locked. Enter your access key.</p>
-        <div class="controls">
-            <input type="password" id="keyInput" placeholder="Access key" autocomplete="current-password">
-            <button class="btn-fetch" onclick="saveKey()">Unlock</button>
+    <header class="top">
+        <div>
+            <div class="eyebrow">Darang Studio · Lead engine</div>
+            <h1 class="title">Real people.<br><span>Real leads.</span></h1>
         </div>
-    </div>
-
-    <div id="appView">
-        <div class="tabs">
-            <button class="tab active" data-tab="discover" onclick="showTab('discover')">Discover</button>
-            <button class="tab" data-tab="saved" onclick="showTab('saved')">Saved Leads<span class="count" id="savedCount"></span></button>
+        <div class="fetch-bar" id="fetchBar">
+            <select class="select" id="regionSelect" aria-label="Region">
+                <option value="all">All regions</option>
+                <option value="Houston TX">Houston TX</option>
+                <option value="Dubai UAE">Dubai UAE</option>
+                <option value="Riyadh KSA">Riyadh KSA</option>
+            </select>
+            <button class="btn-primary" id="fetchBtn" onclick="fetchLeads()">Fetch leads</button>
         </div>
+    </header>
 
-        <!-- DISCOVER -->
-        <section class="view active" id="view-discover">
-            <div class="controls">
-                <select id="regionSelect">
-                    <option value="all">All Regions</option>
-                    <option value="Houston TX">Houston TX</option>
-                    <option value="Dubai UAE">Dubai UAE</option>
-                    <option value="Riyadh KSA">Riyadh KSA</option>
-                </select>
-                <button class="btn-fetch" id="fetchBtn" onclick="fetchLeads()">⚡ FETCH</button>
+    <section class="lock" id="lockView" hidden>
+        <div class="eyebrow">Locked</div>
+        <p>Enter your access key to open the CRM.</p>
+        <form onsubmit="saveKey(event)">
+            <input class="input" type="password" id="keyInput" placeholder="Access key" autocomplete="current-password">
+            <button class="btn-primary" type="submit">Unlock</button>
+        </form>
+    </section>
+
+    <main id="appView">
+        <section class="bento" aria-label="Overview">
+            <div class="tile">
+                <div>
+                    <div class="eyebrow">[ Today ]</div>
+                    <div class="tile-vis"><div class="dots" id="dots"></div></div>
+                </div>
+                <div>
+                    <p class="tile-cap"><b id="todayText">– of 25.</b> Only leads scoring 50+ count.</p>
+                    <span class="tag"><i style="background:var(--blue)"></i>Daily quota</span>
+                </div>
             </div>
-            <div class="stats" id="statsBar">
-                <div class="stat"><div class="stat-num" id="statToday">–</div><div class="stat-label">Leads today</div></div>
-                <div class="stat"><div class="stat-num" id="statCredits">–</div><div class="stat-label">Tavily credits used</div></div>
+            <div class="tile">
+                <div>
+                    <div class="eyebrow">[ Last 12 weeks ]</div>
+                    <div class="tile-vis"><div class="heat" id="heat"></div></div>
+                </div>
+                <div>
+                    <p class="tile-cap"><b>Activity.</b> Leads found, day by day.</p>
+                    <span class="tag"><i style="background:var(--red)"></i>History</span>
+                </div>
             </div>
-            <div class="status-msg" id="fetchStatus">Tap FETCH to pull up to 5 new leads (daily limit 25).</div>
-            <div id="discoverList"></div>
+            <div class="tile">
+                <div>
+                    <div class="eyebrow">[ Pipeline ]</div>
+                    <div class="tile-vis"><div class="pipe" id="pipe"></div></div>
+                </div>
+                <div>
+                    <p class="tile-cap"><b>Pipeline.</b> From first message to won.</p>
+                    <span class="tag"><i style="background:var(--purple)"></i>Saved leads</span>
+                </div>
+            </div>
+            <div class="tile">
+                <div>
+                    <div class="eyebrow">[ Tavily credits ]</div>
+                    <div class="tile-vis" style="display:block;padding-top:18px;">
+                        <div class="big-num" id="credits">–</div>
+                        <div class="bar"><div id="creditBar"></div></div>
+                    </div>
+                </div>
+                <div>
+                    <p class="tile-cap"><b>Credits.</b> One per fetch, live from Tavily.</p>
+                    <span class="tag"><i style="background:var(--green)"></i>Usage</span>
+                </div>
+            </div>
         </section>
 
-        <!-- SAVED -->
+        <div class="seg-wrap">
+            <div class="seg" role="tablist">
+                <button class="active" data-tab="discover" onclick="showTab('discover')">Discover</button>
+                <button data-tab="saved" onclick="showTab('saved')">Saved<span class="count" id="savedCount"></span></button>
+            </div>
+            <div class="msg" id="msg">Fetch finds up to 5 scored leads with real contacts.</div>
+        </div>
+
+        <section class="view active" id="view-discover">
+            <div class="grid" id="discoverList">
+                <div class="empty"><b>Start your first batch</b>Pick a region and tap Fetch leads.</div>
+            </div>
+        </section>
+
         <section class="view" id="view-saved">
-            <div class="controls">
-                <input type="search" id="searchInput" placeholder="Search company, website, email..." oninput="renderSaved()">
-                <select id="savedRegion" onchange="renderSaved()" style="flex: 0 0 130px;">
+            <div class="filters">
+                <input class="input" type="search" id="searchInput" placeholder="Search company, person, email" oninput="renderSaved()">
+                <select class="select" id="savedRegion" onchange="renderSaved()" aria-label="Filter region">
                     <option value="all">All regions</option>
                     <option value="Houston TX">Houston TX</option>
                     <option value="Dubai UAE">Dubai UAE</option>
                     <option value="Riyadh KSA">Riyadh KSA</option>
                 </select>
+                <select class="select" id="sortBy" onchange="renderSaved()" aria-label="Sort">
+                    <option value="score">Best score</option>
+                    <option value="new">Newest</option>
+                </select>
             </div>
             <div class="chips" id="statusChips"></div>
-            <div class="status-msg" id="savedStatus"></div>
-            <div id="savedList"></div>
+            <div class="grid" id="savedList" style="margin-top:12px;"></div>
         </section>
-    </div>
 
+        <div class="foot">Made by Darang AI</div>
+    </main>
 </div>
 
-<div class="toast" id="toast"></div>
-
-<template id="leadTemplate">
-    <div class="lead-card">
-        <div class="card-top">
-            <div class="company-title" data-f="company_name">-</div>
-            <select class="status-select" data-a="status"></select>
-        </div>
-        <div class="badges">
-            <span class="badge" data-f="region"></span>
-            <span class="badge date" data-a="date"></span>
-        </div>
-
-        <div class="info-group">
-            <div class="info-label">Email</div>
-            <div class="info-value" data-f="email">-</div>
-        </div>
-
-        <div class="info-group">
-            <div class="info-label">Phone / WhatsApp</div>
-            <div class="info-value" data-f="phone_whatsapp">-</div>
-        </div>
-
-        <div class="info-group">
-            <div class="info-label">Audit Finding</div>
-            <div class="info-value" data-f="website_issue">-</div>
-        </div>
-
-        <details class="more">
-            <summary>Website, package & pitch</summary>
-            <div class="info-group" style="margin-top:10px;">
-                <div class="info-label">Website</div>
-                <div class="info-value" data-f="website">-</div>
-            </div>
-            <div class="info-group">
-                <div class="info-label">Package</div>
-                <div class="info-value" data-f="target_package">-</div>
-            </div>
-            <div class="pitch-box" data-f="pitch_text">-</div>
-        </details>
-
-        <div class="actions">
-            <a target="_blank" rel="noopener" class="action-btn btn-wa" data-a="wa">WhatsApp</a>
-            <button class="action-btn btn-link" data-a="copy">Copy pitch</button>
-            <a target="_blank" rel="noopener" class="action-btn btn-link" data-a="site">Website</a>
-        </div>
-    </div>
-</template>
+<div class="toast" id="toast" role="status"></div>
 
 <script>
-    const STATUSES = ['New', 'Contacted', 'Replied', 'Won', 'Lost', 'Low priority'];
-    let savedLeads = [];
-    let savedLoaded = false;
-    let statusFilter = 'all';
+const STATUSES = ['New', 'Contacted', 'Replied', 'Won', 'Lost', 'Low priority'];
+const STATUS_COLOR = { New: 'var(--gold)', Contacted: 'var(--blue)', Replied: 'var(--purple)', Won: 'var(--green)', Lost: 'var(--red)', 'Low priority': 'var(--text-3)' };
+let savedLeads = [];
+let savedLoaded = false;
+let statusFilter = 'all';
+let dailyLimit = 25;
 
-    // ---------- access key ----------
-    function getKey() {
-        try { return localStorage.getItem('crmKey') || ''; } catch { return ''; }
+/* ---------- access key ---------- */
+const getKey = () => { try { return localStorage.getItem('crmKey') || ''; } catch { return ''; } };
+function saveKey(e) {
+    e.preventDefault();
+    const v = document.getElementById('keyInput').value.trim();
+    if (!v) return;
+    try { localStorage.setItem('crmKey', v); } catch {}
+    document.getElementById('lockView').hidden = true;
+    document.getElementById('appView').hidden = false;
+    document.getElementById('fetchBar').hidden = false;
+    boot();
+}
+function showLock() {
+    try { localStorage.removeItem('crmKey'); } catch {}
+    document.getElementById('appView').hidden = true;
+    document.getElementById('fetchBar').hidden = true;
+    document.getElementById('lockView').hidden = false;
+}
+async function api(path, options = {}) {
+    const res = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', 'x-crm-key': getKey() } });
+    const data = await res.json().catch(() => ({ success: false, message: 'Unexpected server response.' }));
+    if (res.status === 401 && data.auth) { showLock(); throw new Error('locked'); }
+    return data;
+}
+
+/* ---------- helpers ---------- */
+function toast(text) {
+    const t = document.getElementById('toast');
+    t.textContent = text;
+    t.classList.add('show');
+    clearTimeout(t._h);
+    t._h = setTimeout(() => t.classList.remove('show'), 1900);
+}
+function el(tag, attrs = {}, text) {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+        if (k === 'class') n.className = v; else if (k === 'style') n.style.cssText = v; else n.setAttribute(k, v);
     }
+    if (text != null) n.textContent = text;
+    return n;
+}
+function fmtDate(iso) {
+    const d = iso ? new Date(iso) : null;
+    return d && !isNaN(d) ? d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : 'Today';
+}
+// Older leads were saved before scoring existed: rebuild their score from the stored fields.
+function scoreOf(l) {
+    if (l.score_breakdown && l.lead_score != null) return { score: l.lead_score, b: l.score_breakdown };
+    const issues = l.website_issue && !/^No major/i.test(l.website_issue) ? l.website_issue.split(';').length : 0;
+    const b = {
+        email: l.email && !/@instagram\.com$/i.test(l.email) ? 25 : 0,
+        phone: l.phone_whatsapp && l.phone_whatsapp !== '+10000000000' ? 25 : 0,
+        decision_maker: l.contact_name ? 20 : 0,
+        website_issues: issues >= 3 ? 20 : issues === 2 ? 15 : issues === 1 ? 10 : 0,
+        instagram: l.instagram_link && !/instagram\.com\/[a-z0-9]+$/i.test(l.instagram_link || '') ? 10 : 0
+    };
+    return { score: Object.values(b).reduce((a, c) => a + c, 0), b };
+}
+function grade(score) {
+    if (score >= 75) return ['Strong', 'var(--gold)'];
+    if (score >= 50) return ['Good', 'var(--text)'];
+    return ['Weak', 'var(--text-3)'];
+}
 
-    function saveKey() {
-        const v = document.getElementById('keyInput').value.trim();
-        if (!v) return;
-        try { localStorage.setItem('crmKey', v); } catch {}
-        document.getElementById('lockView').hidden = true;
-        document.getElementById('appView').hidden = false;
-        loadSaved();
-        loadStats();
-    }
+/* ---------- lead card ---------- */
+function ring(score, color) {
+    const C = 2 * Math.PI * 26, len = Math.max(0, Math.min(100, score)) / 100 * C;
+    return `<svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="Lead score ${score} of 100">
+        <circle cx="32" cy="32" r="26" fill="none" stroke="#1c1c1e" stroke-width="5"/>
+        <circle cx="32" cy="32" r="26" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round"
+            stroke-dasharray="${len.toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 32 32)"/>
+        <text x="32" y="38" text-anchor="middle" font-size="17" font-family="SF Mono, ui-monospace, Menlo, monospace" fill="#f5f5f7">${score}</text>
+    </svg>`;
+}
 
-    function showLock() {
-        try { localStorage.removeItem('crmKey'); } catch {}
-        document.getElementById('appView').hidden = true;
-        document.getElementById('lockView').hidden = false;
-        document.getElementById('keyInput').focus();
-    }
+function renderLead(lead, i = 0) {
+    const { score, b } = scoreOf(lead);
+    const [gLabel, gColor] = grade(score);
+    const card = el('article', { class: 'lead', style: `animation-delay:${Math.min(i, 8) * 60}ms` });
+    card.dataset.status = lead.status || 'New';
 
-    async function api(path, options = {}) {
-        const res = await fetch(path, {
-            ...options,
-            headers: { 'Content-Type': 'application/json', 'x-crm-key': getKey(), ...(options.headers || {}) }
+    const head = el('div', { class: 'lead-head' });
+    const left = el('div', { style: 'min-width:0' });
+    const meta = el('div', { class: 'meta' });
+    meta.appendChild(el('span', { class: 'eyebrow' }, `${lead.region || ''} · ${fmtDate(lead.created_at)}`));
+    left.appendChild(meta);
+    left.appendChild(el('div', { class: 'lead-name' }, lead.company_name));
+    left.appendChild(lead.contact_name
+        ? el('div', { class: 'lead-person' }, `${lead.contact_name}${lead.contact_role ? ' · ' + lead.contact_role : ''}`)
+        : el('div', { class: 'lead-person none' }, 'No named decision-maker on their site'));
+
+    const sel = el('select', { class: 'status', 'aria-label': 'Status', style: 'margin-top:12px' });
+    STATUSES.forEach(s => sel.add(new Option(s, s, false, s === card.dataset.status)));
+    const paint = () => { sel.style.color = STATUS_COLOR[sel.value]; sel.style.borderColor = STATUS_COLOR[sel.value]; };
+    paint();
+    sel.addEventListener('change', () => { updateStatus(lead, sel.value, card, sel); paint(); });
+    left.appendChild(sel);
+
+    const r = el('div', { class: 'ring' });
+    r.innerHTML = ring(score, gColor);
+    r.appendChild(el('div', { class: 'lbl', style: `color:${gColor}` }, gLabel));
+    head.append(left, r);
+    card.appendChild(head);
+
+    const checks = el('div', { class: 'checks' });
+    const row = (label, value, pts) => {
+        const rw = el('div', { class: 'check' });
+        rw.appendChild(el('span', {}, label));
+        const v = el('span', { class: pts ? 'ok' : 'no' }, value);
+        v.appendChild(el('span', { class: 'pts' + (pts ? ' got' : '') }, `+${pts}`));
+        rw.appendChild(v);
+        checks.appendChild(rw);
+    };
+    row('Email', lead.email && b.email ? lead.email : 'Not found', b.email);
+    row('Phone / WhatsApp', lead.phone_whatsapp && b.phone ? lead.phone_whatsapp : 'Not found', b.phone);
+    row('Decision-maker', lead.contact_name || 'Not named', b.decision_maker);
+    row('Website issues', b.website_issues ? `${lead.website_issue.split(';').length} found` : 'None', b.website_issues);
+    row('Own Instagram', b.instagram ? 'Linked on site' : 'Not linked', b.instagram);
+    card.appendChild(checks);
+
+    if (lead.website_issue) card.appendChild(el('div', { class: 'audit' }, lead.website_issue));
+
+    const det = el('details', { class: 'pitch' });
+    det.appendChild(el('summary', {}, `Pitch · ${lead.target_package || ''}`));
+    det.appendChild(el('div', { class: 'pitch-text' }, lead.pitch_text || ''));
+    card.appendChild(det);
+
+    const acts = el('div', { class: 'actions' });
+    const digits = (lead.phone_whatsapp || '').replace(/\D/g, '');
+    const wa = el('a', { class: 'act wa', target: '_blank', rel: 'noopener' }, 'WhatsApp');
+    if (digits.length >= 9 && b.phone) {
+        wa.href = `https://wa.me/${digits}?text=${encodeURIComponent(lead.pitch_text || '')}`;
+        wa.addEventListener('click', () => {
+            if (card.dataset.status === 'New') { sel.value = 'Contacted'; updateStatus(lead, 'Contacted', card, sel); paint(); }
         });
-        const data = await res.json().catch(() => ({ success: false, message: 'Bad server response.' }));
-        if (res.status === 401 && data.auth) {
-            showLock();
-            throw new Error('locked');
-        }
-        return data;
+    } else {
+        wa.className = 'act off';
+        wa.textContent = 'No WhatsApp';
     }
+    const copy = el('button', { class: 'act', type: 'button' }, 'Copy pitch');
+    copy.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(lead.pitch_text || ''); toast('Pitch copied'); }
+        catch { toast('Copy blocked by the browser. Open Pitch and copy it.'); }
+    });
+    const site = el('a', { class: 'act', target: '_blank', rel: 'noopener', href: lead.source_link || `https://${lead.website}` }, 'Website');
+    acts.append(wa, copy, site);
+    card.appendChild(acts);
+    return card;
+}
 
-    // ---------- helpers ----------
-    function toast(msg) {
-        const t = document.getElementById('toast');
-        t.textContent = msg;
-        t.classList.add('show');
-        clearTimeout(t._h);
-        t._h = setTimeout(() => t.classList.remove('show'), 1800);
+async function updateStatus(lead, status, card, sel) {
+    const prev = lead.status || 'New';
+    lead.status = status;
+    card.dataset.status = status;
+    try {
+        const data = await api('/api/leads/status', { method: 'POST', body: JSON.stringify({ company_name: lead.company_name, status }) });
+        if (!data.success) throw new Error(data.message);
+        const s = savedLeads.find(l => l.company_name === lead.company_name);
+        if (s) s.status = status;
+        renderPipeline(); renderChips();
+        toast(`Marked ${status.toLowerCase()}`);
+    } catch (err) {
+        if (err.message === 'locked') return;
+        lead.status = prev; card.dataset.status = prev; sel.value = prev;
+        toast(`Couldn't update. ${err.message}`);
     }
+}
 
-    function fmtDate(iso) {
-        if (!iso) return '';
-        const d = new Date(iso);
-        return isNaN(d) ? '' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-    }
+/* ---------- tabs ---------- */
+function showTab(name) {
+    document.querySelectorAll('.seg button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+    document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+    if (name === 'saved') renderSaved();
+}
+const setMsg = t => document.getElementById('msg').textContent = t;
 
-    function showTab(name) {
-        document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-        document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
-        if (name === 'saved') loadSaved();
-    }
-
-    // ---------- lead card ----------
-    function renderLead(lead) {
-        const node = document.getElementById('leadTemplate').content.firstElementChild.cloneNode(true);
-        node.dataset.status = lead.status || 'New';
-
-        node.querySelectorAll('[data-f]').forEach(el => {
-            const key = el.dataset.f;
-            const val = lead[key];
-            if (val) {
-                el.textContent = val;
-            } else {
-                el.textContent = key === 'email' ? 'No email found on their site'
-                    : key === 'phone_whatsapp' ? 'No phone found on their site' : '-';
-                el.classList.add('muted');
-            }
-        });
-
-        node.querySelector('[data-a="date"]').textContent = fmtDate(lead.created_at) || 'Just now';
-
-        const sel = node.querySelector('[data-a="status"]');
-        STATUSES.forEach(s => sel.add(new Option(s, s, false, s === (lead.status || 'New'))));
-        sel.addEventListener('change', () => updateStatus(lead, sel.value, node, sel));
-
-        const wa = node.querySelector('[data-a="wa"]');
-        const digits = (lead.phone_whatsapp || '').replace(/\D/g, '');
-        if (digits.length >= 9) {
-            wa.href = `https://wa.me/${digits}?text=${encodeURIComponent(lead.pitch_text || '')}`;
-            wa.addEventListener('click', () => {
-                if ((lead.status || 'New') === 'New') {
-                    sel.value = 'Contacted';
-                    updateStatus(lead, 'Contacted', node, sel);
-                }
-            });
-        } else {
-            wa.textContent = 'No WhatsApp';
-            wa.classList.add('disabled');
-        }
-
-        node.querySelector('[data-a="copy"]').addEventListener('click', async () => {
-            try {
-                await navigator.clipboard.writeText(lead.pitch_text || '');
-                toast('Pitch copied');
-            } catch {
-                toast('Copy failed. Open "Website, package & pitch" and copy manually.');
-            }
-        });
-
-        node.querySelector('[data-a="site"]').href = lead.source_link || `https://${lead.website}`;
-        return node;
-    }
-
-    async function updateStatus(lead, status, node, sel) {
-        const prev = lead.status || 'New';
-        lead.status = status;
-        node.dataset.status = status;
-        try {
-            const data = await api('/api/leads/status', {
-                method: 'POST',
-                body: JSON.stringify({ company_name: lead.company_name, status })
-            });
-            if (!data.success) throw new Error(data.message);
-            const s = savedLeads.find(l => l.company_name === lead.company_name);
-            if (s) s.status = status;
-            renderChips();
-            toast(`Marked ${status}`);
-        } catch (err) {
-            if (err.message === 'locked') return;
-            lead.status = prev;
-            node.dataset.status = prev;
-            sel.value = prev;
-            toast(`Couldn't update: ${err.message}`);
-        }
-    }
-
-    // ---------- discover ----------
-    async function fetchLeads() {
-        const btn = document.getElementById('fetchBtn');
-        const status = document.getElementById('fetchStatus');
-        const list = document.getElementById('discoverList');
-
-        btn.disabled = true;
-        status.textContent = "Searching and auditing live company websites (10-20s)...";
-
-        try {
-            const data = await api('/api/fetch-leads', {
-                method: 'POST',
-                body: JSON.stringify({ regionFilter: document.getElementById('regionSelect').value })
-            });
-
-            if (!data.success) {
-                status.textContent = data.message || "No new leads found. Try again.";
-                if (data.limitReached) setToday(data.todayCount, data.dailyLimit);
-                return;
-            }
-
-            list.innerHTML = '';
-            data.leads.forEach(lead => list.appendChild(renderLead(lead)));
-            const strong = data.leads.filter(l => l.status !== 'Low priority').length;
-            status.textContent = `${data.leads.length} leads saved (${strong} with real website issues).`;
-            savedLoaded = false; // refresh Saved tab next time it opens
-            loadSaved(true);
-        } catch (err) {
-            if (err.message !== 'locked') status.textContent = "Error connecting to backend server.";
-        } finally {
-            btn.disabled = false;
-            loadStats();
-        }
-    }
-
-    // ---------- stats ----------
-    function setToday(count, limit) {
-        const el = document.getElementById('statToday');
-        el.textContent = `${count} / ${limit}`;
-        el.style.color = count >= limit ? 'var(--s-lost)' : '';
-        const btn = document.getElementById('fetchBtn');
-        btn.disabled = count >= limit;
-        btn.textContent = count >= limit ? 'Limit reached' : '⚡ FETCH';
-    }
-
-    async function loadStats() {
-        try {
-            const data = await api('/api/stats');
-            if (!data.success) return;
-            setToday(data.todayCount, data.dailyLimit);
-            const t = data.tavily;
-            document.getElementById('statCredits').textContent =
-                t && t.used != null ? (t.limit ? `${t.used} / ${t.limit}` : `${t.used}`) : 'n/a';
-        } catch {}
-    }
-
-    // ---------- saved ----------
-    async function loadSaved(quiet) {
-        if (savedLoaded) { renderSaved(); return; }
-        const status = document.getElementById('savedStatus');
-        if (!quiet) status.textContent = 'Loading saved leads...';
-        try {
-            const data = await api('/api/leads');
-            if (!data.success) { status.textContent = data.message; return; }
-            savedLeads = data.leads;
-            savedLoaded = true;
-            status.textContent = '';
-            renderChips();
-            renderSaved();
-        } catch (err) {
-            if (err.message !== 'locked') status.textContent = 'Error loading saved leads.';
-        }
-    }
-
-    function renderChips() {
-        const counts = { all: savedLeads.length };
-        STATUSES.forEach(s => counts[s] = 0);
-        savedLeads.forEach(l => counts[l.status || 'New'] = (counts[l.status || 'New'] || 0) + 1);
-
-        document.getElementById('savedCount').textContent = savedLeads.length ? savedLeads.length : '';
-
-        const wrap = document.getElementById('statusChips');
-        wrap.innerHTML = '';
-        ['all', ...STATUSES].forEach(s => {
-            const b = document.createElement('button');
-            b.className = 'chip' + (statusFilter === s ? ' active' : '');
-            b.textContent = `${s === 'all' ? 'All' : s} ${counts[s] || 0}`;
-            b.onclick = () => { statusFilter = s; renderChips(); renderSaved(); };
-            wrap.appendChild(b);
-        });
-    }
-
-    function renderSaved() {
-        const q = document.getElementById('searchInput').value.trim().toLowerCase();
-        const region = document.getElementById('savedRegion').value;
-        const list = document.getElementById('savedList');
-
-        const rows = savedLeads.filter(l =>
-            (statusFilter === 'all' || (l.status || 'New') === statusFilter) &&
-            (region === 'all' || l.region === region) &&
-            (!q || [l.company_name, l.website, l.email, l.phone_whatsapp].some(v => (v || '').toLowerCase().includes(q)))
-        );
-
-        list.innerHTML = '';
-        if (!savedLoaded) return;
-        if (!rows.length) {
-            list.innerHTML = `<div class="empty">${savedLeads.length ? 'No leads match these filters.' : 'No saved leads yet. Go to Discover and tap FETCH.'}</div>`;
+/* ---------- fetch ---------- */
+async function fetchLeads() {
+    const btn = document.getElementById('fetchBtn');
+    btn.disabled = true; btn.classList.add('loading');
+    showTab('discover');
+    setMsg('Searching and checking each company site. About 15 seconds.');
+    try {
+        const data = await api('/api/fetch-leads', { method: 'POST', body: JSON.stringify({ regionFilter: document.getElementById('regionSelect').value }) });
+        if (!data.success) {
+            setMsg(data.message || 'No new leads this time. Try again.');
+            if (data.limitReached) setToday(data.todayCount, data.dailyLimit);
             return;
         }
-        rows.forEach(l => list.appendChild(renderLead(l)));
+        const list = document.getElementById('discoverList');
+        list.innerHTML = '';
+        data.leads.forEach((l, i) => list.appendChild(renderLead(l, i)));
+        const strong = data.leads.filter(l => (l.lead_score || 0) >= 75).length;
+        setMsg(`${data.leads.length} new leads saved · ${strong} strong`);
+        savedLoaded = false;
+        await loadSaved();
+    } catch (err) {
+        if (err.message !== 'locked') setMsg('Couldn\'t reach the server. Try again.');
+    } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        loadStats();
     }
+}
 
-    loadSaved(true);
+/* ---------- overview tiles ---------- */
+function setToday(count, limit) {
+    dailyLimit = limit;
+    const dots = document.getElementById('dots');
+    if (!dots.children.length) for (let i = 0; i < limit; i++) dots.appendChild(el('span', { class: 'dot' }));
+    [...dots.children].forEach((d, i) => setTimeout(() => d.classList.toggle('on', i < count), i * 25));
+    document.getElementById('todayText').textContent = `${count} of ${limit}.`;
+    const btn = document.getElementById('fetchBtn');
+    const full = count >= limit;
+    btn.disabled = full;
+    btn.textContent = full ? 'Done for today' : 'Fetch leads';
+}
+async function loadStats() {
+    try {
+        const data = await api('/api/stats');
+        if (!data.success) return;
+        setToday(data.todayCount, data.dailyLimit);
+        const t = data.tavily;
+        const c = document.getElementById('credits');
+        if (t && t.used != null) {
+            c.innerHTML = '';
+            c.append(String(t.used));
+            if (t.limit) c.appendChild(el('span', {}, ` / ${t.limit}`));
+            document.getElementById('creditBar').style.width = t.limit ? Math.min(100, Math.round(t.used / t.limit * 100)) + '%' : '0';
+        } else {
+            c.textContent = 'n/a';
+        }
+    } catch {}
+}
+function renderHeat() {
+    const heat = document.getElementById('heat');
+    heat.innerHTML = '';
+    const counts = {};
+    savedLeads.forEach(l => { if (l.created_at) { const k = l.created_at.slice(0, 10); counts[k] = (counts[k] || 0) + 1; } });
+    const shades = ['#161618', '#3b1513', '#6e1f1b', '#b02f28', '#ff453a'];
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const start = new Date(today); start.setDate(start.getDate() - 83 - start.getDay());
+    for (let i = 0; i < 84; i++) {
+        const d = new Date(start); d.setDate(start.getDate() + i);
+        const n = counts[d.toISOString().slice(0, 10)] || 0;
+        const lvl = n === 0 ? 0 : n < 3 ? 1 : n < 8 ? 2 : n < 15 ? 3 : 4;
+        const s = el('span', { title: `${d.toLocaleDateString()}: ${n} leads` });
+        if (d > today) s.style.opacity = '0';
+        s.style.background = shades[lvl];
+        heat.appendChild(s);
+    }
+}
+function renderPipeline() {
+    const pipe = document.getElementById('pipe');
+    pipe.innerHTML = '';
+    const rows = [['New', 'var(--gold)'], ['Contacted', 'var(--blue)'], ['Replied', 'var(--purple)'], ['Won', 'var(--green)']];
+    const counts = Object.fromEntries(rows.map(([s]) => [s, savedLeads.filter(l => (l.status || 'New') === s).length]));
+    const max = Math.max(1, ...Object.values(counts));
+    rows.forEach(([s, c]) => {
+        const r = el('div', { class: 'pipe-row' });
+        r.appendChild(el('span', {}, s.toLowerCase()));
+        const tr = el('div', { class: 'track' });
+        const f = el('div', { class: 'fill', style: `background:${c}` });
+        tr.appendChild(f);
+        r.appendChild(tr);
+        r.appendChild(el('b', {}, String(counts[s])));
+        pipe.appendChild(r);
+        requestAnimationFrame(() => requestAnimationFrame(() => f.style.width = Math.round(counts[s] / max * 100) + '%'));
+    });
+    document.getElementById('savedCount').textContent = savedLeads.length || '';
+}
+
+/* ---------- saved ---------- */
+async function loadSaved() {
+    if (savedLoaded) return;
+    try {
+        const data = await api('/api/leads');
+        if (!data.success) { setMsg(data.message); return; }
+        savedLeads = data.leads;
+        savedLoaded = true;
+        renderHeat(); renderPipeline(); renderChips(); renderSaved();
+    } catch (err) {
+        if (err.message !== 'locked') setMsg('Couldn\'t load saved leads.');
+    }
+}
+function renderChips() {
+    const counts = { all: savedLeads.length };
+    savedLeads.forEach(l => { const s = l.status || 'New'; counts[s] = (counts[s] || 0) + 1; });
+    const wrap = document.getElementById('statusChips');
+    wrap.innerHTML = '';
+    ['all', ...STATUSES].forEach(s => {
+        if (s !== 'all' && !counts[s]) return;
+        const b = el('button', { class: 'chip' + (statusFilter === s ? ' active' : '') }, `${s === 'all' ? 'All' : s}  ${counts[s] || 0}`);
+        b.onclick = () => { statusFilter = s; renderChips(); renderSaved(); };
+        wrap.appendChild(b);
+    });
+}
+function renderSaved() {
+    if (!savedLoaded) return;
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    const region = document.getElementById('savedRegion').value;
+    const sort = document.getElementById('sortBy').value;
+    const rows = savedLeads
+        .filter(l => (statusFilter === 'all' || (l.status || 'New') === statusFilter)
+            && (region === 'all' || l.region === region)
+            && (!q || [l.company_name, l.contact_name, l.website, l.email, l.phone_whatsapp].some(v => (v || '').toLowerCase().includes(q))))
+        .sort((a, b) => sort === 'score'
+            ? scoreOf(b).score - scoreOf(a).score
+            : new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    const list = document.getElementById('savedList');
+    list.innerHTML = '';
+    if (!rows.length) {
+        const e = el('div', { class: 'empty' });
+        e.appendChild(el('b', {}, savedLeads.length ? 'No matches' : 'No saved leads yet'));
+        e.append(savedLeads.length ? 'Try another filter or search.' : 'Fetch your first batch from Discover.');
+        list.appendChild(e);
+        return;
+    }
+    rows.forEach((l, i) => list.appendChild(renderLead(l, i)));
+}
+
+function boot() {
+    setToday(0, dailyLimit);
     loadStats();
+    loadSaved();
+    renderHeat();
+}
+boot();
 </script>
 </body>
 </html>
