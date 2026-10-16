@@ -313,8 +313,10 @@ details.pitch[open] summary::before { content: "– "; }
 
 .lock { min-height: 70vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px; }
 .lock p { color: var(--text-2); margin: 0; }
-.lock form { display: flex; gap: 8px; width: 100%; max-width: 360px; }
-.lock .input { flex: 1; }
+.login { width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 10px; text-align: left; background: var(--tile); border: 1px solid var(--line); border-radius: 22px; padding: 28px 24px; }
+.login .input { width: 100%; }
+.login-err { min-height: 18px; font-size: 13px; color: var(--red); }
+.signout { height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: var(--text-2); cursor: pointer; }
 .foot { margin-top: 48px; text-align: center; font-family: var(--mono); font-size: 11px; color: var(--text-3); letter-spacing: .08em; }
 </style>
 </head>
@@ -336,15 +338,19 @@ details.pitch[open] summary::before { content: "– "; }
             </datalist>
             <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" aria-label="Switch theme"></button>
             <button class="btn-primary" id="fetchBtn" onclick="fetchLeads()">Fetch leads</button>
+            <button class="signout" onclick="signOut()" aria-label="Sign out">Sign out</button>
         </div>
     </header>
 
     <section class="lock" id="lockView" hidden>
-        <div class="eyebrow">Locked</div>
-        <p>Enter your access key to open the CRM.</p>
-        <form onsubmit="saveKey(event)">
-            <input class="input" type="password" id="keyInput" placeholder="Access key" autocomplete="current-password">
-            <button class="btn-primary" type="submit">Unlock</button>
+        <form class="login" onsubmit="signIn(event)">
+            <div class="eyebrow">Darang Studio</div>
+            <h2 style="font-size:28px;font-weight:600;letter-spacing:-0.03em;margin:6px 0 4px;">Sign in</h2>
+            <p style="margin:0 0 18px;">Your leads are private.</p>
+            <input class="input" id="userInput" placeholder="Username" autocomplete="username" autocapitalize="none" required>
+            <input class="input" type="password" id="passInput" placeholder="Password" autocomplete="current-password" required>
+            <button class="btn-primary" type="submit" id="signInBtn" style="width:100%;">Sign in</button>
+            <div class="login-err" id="loginErr" role="alert"></div>
         </form>
     </section>
 
@@ -445,28 +451,47 @@ let savedLoaded = false;
 let statusFilter = 'all';
 let dailyLimit = 25;
 
-/* ---------- access key ---------- */
-const getKey = () => { try { return localStorage.getItem('crmKey') || ''; } catch { return ''; } };
-function saveKey(e) {
-    e.preventDefault();
-    const v = document.getElementById('keyInput').value.trim();
-    if (!v) return;
-    try { localStorage.setItem('crmKey', v); } catch {}
-    document.getElementById('lockView').hidden = true;
-    document.getElementById('appView').hidden = false;
-    document.getElementById('fetchBar').hidden = false;
-    boot();
-}
-function showLock() {
-    try { localStorage.removeItem('crmKey'); } catch {}
+/* ---------- login ---------- */
+const getToken = () => { try { return localStorage.getItem('crmToken') || ''; } catch { return ''; } };
+function showLock(message) {
+    try { localStorage.removeItem('crmToken'); } catch {}
     document.getElementById('appView').hidden = true;
     document.getElementById('fetchBar').hidden = true;
     document.getElementById('lockView').hidden = false;
+    document.getElementById('loginErr').textContent = message && message !== 'Please sign in.' ? message : '';
 }
+function showApp() {
+    document.getElementById('lockView').hidden = true;
+    document.getElementById('appView').hidden = false;
+    document.getElementById('fetchBar').hidden = false;
+}
+async function signIn(e) {
+    e.preventDefault();
+    const btn = document.getElementById('signInBtn');
+    const err = document.getElementById('loginErr');
+    err.textContent = '';
+    btn.disabled = true; btn.classList.add('loading');
+    try {
+        const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: document.getElementById('userInput').value, password: document.getElementById('passInput').value }) });
+        const data = await r.json().catch(() => ({}));
+        if (!data.success) { err.textContent = data.message || 'Couldn\'t sign in.'; return; }
+        try { localStorage.setItem('crmToken', data.token); } catch {}
+        document.getElementById('passInput').value = '';
+        showApp();
+        savedLoaded = false;
+        boot();
+    } catch {
+        err.textContent = 'Couldn\'t reach the server. Try again.';
+    } finally {
+        btn.disabled = false; btn.classList.remove('loading');
+    }
+}
+function signOut() { showLock(); }
 async function api(path, options = {}) {
-    const res = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', 'x-crm-key': getKey() } });
+    const res = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', 'x-crm-token': getToken() } });
     const data = await res.json().catch(() => ({ success: false, message: 'Unexpected server response.' }));
-    if (res.status === 401 && data.auth) { showLock(); throw new Error('locked'); }
+    if (res.status === 401 && data.auth) { showLock(data.message); throw new Error('locked'); }
     return data;
 }
 
@@ -904,7 +929,7 @@ function boot() {
     loadSaved();
     renderHeat();
 }
-boot();
+if (getToken()) { showApp(); boot(); } else { showLock(); }
 </script>
 </body>
 </html>

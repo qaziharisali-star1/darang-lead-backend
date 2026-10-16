@@ -42,11 +42,26 @@ async function tavilyUsage() {
 }
 const STATUSES = ['New', 'Contacted', 'Replied', 'Won', 'Lost', 'Low priority'];
 
-// Optional lock: if CRM_ACCESS_KEY is set in Vercel, every data request must send it.
+// Login: CRM_USERNAME and CRM_PASSWORD live only in Vercel Environment Variables (never in this public repo).
+// Locked by default: with no credentials set, nobody can sign in.
+const crypto = require('crypto');
+const SESSION_DAYS = 30;
+
+function creds() {
+    const u = process.env.CRM_USERNAME, p = process.env.CRM_PASSWORD;
+    return u && p ? { u, p } : null;
+}
+const sha = v => crypto.createHash('sha256').update(String(v)).digest();
+const same = (a, b) => crypto.timingSafeEqual(sha(a), sha(b));
+const sign = (exp, c) => crypto.createHmac('sha256', `${c.u}:${c.p}`).update(String(exp)).digest('hex');
+const NOT_SET_UP = "Login isn't set up yet. Add CRM_USERNAME and CRM_PASSWORD in Vercel, then redeploy.";
+
 function requireKey(req, res, next) {
-    const key = process.env.CRM_ACCESS_KEY;
-    if (!key || req.get('x-crm-key') === key) return next();
-    return res.status(401).json({ success: false, auth: true, message: "Enter your CRM access key." });
+    const c = creds();
+    if (!c) return res.status(401).json({ success: false, auth: true, setup: true, message: NOT_SET_UP });
+    const [exp, sig] = String(req.get('x-crm-token') || '').split('.');
+    if (exp && sig && Number(exp) > Date.now() && same(sig, sign(exp, c))) return next();
+    return res.status(401).json({ success: false, auth: true, message: "Please sign in." });
 }
 const TABLE = 'Leade';
 
@@ -497,6 +512,19 @@ app.post('/api/fetch-leads', requireKey, async (req, res) => {
         console.error("Fetch Error:", err);
         return res.status(500).json({ success: false, error: err.message, message: `Server error: ${err.message}` });
     }
+});
+
+// Sign in: returns a 30-day session token. Changing the password in Vercel signs everyone out.
+app.post('/api/login', async (req, res) => {
+    const c = creds();
+    if (!c) return res.status(503).json({ success: false, setup: true, message: NOT_SET_UP });
+    const { username, password } = req.body || {};
+    if (!same(String(username || '').trim(), c.u) || !same(String(password || ''), c.p)) {
+        await new Promise(r => setTimeout(r, 900)); // slows down password guessing
+        return res.status(401).json({ success: false, message: "Wrong username or password." });
+    }
+    const exp = Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000;
+    return res.json({ success: true, token: `${exp}.${sign(exp, c)}` });
 });
 
 // Today's lead count and Tavily credit usage.
